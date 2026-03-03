@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  comandero:
+    container_name: comandero
+    build: .
+    environment:
+      TZ : Europe/Madrid
+    ports:
+     - 3001:3001
+    restart: unless-stopped

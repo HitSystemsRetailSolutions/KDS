@@ -1,0 +1,143 @@
+/* KDS Professional Light Theme — Inspired by Fresh KDS, Toast, Square */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Core Palette — Light */
+  --kds-bg: #f0f2f5;
+  --kds-surface: #ffffff;
+  --kds-surface-hover: #f5f6f8;
+  --kds-card: #ffffff;
+  --kds-card-border: #e2e5ea;
+  --kds-text: #1a1a2e;
+  --kds-text-muted: #6b7280;
+  --kds-text-dim: #9ca3af;
+
+  /* Timer Status Colors */
+  --kds-fresh: #10b981;
+  --kds-fresh-glow: rgba(16, 185, 129, 0.12);
+  --kds-warning: #f59e0b;
+  --kds-warning-glow: rgba(245, 158, 11, 0.12);
+  --kds-urgent: #ef4444;
+  --kds-urgent-glow: rgba(239, 68, 68, 0.15);
+
+  /* Accent */
+  --kds-accent: #6366f1;
+  --kds-accent-light: #818cf8;
+  --kds-bump: #10b981;
+  --kds-bump-hover: #059669;
+
+  /* Functional */
+  --kds-ready-bg: rgba(16, 185, 129, 0.08);
+  --kds-served-bg: rgba(0, 0, 0, 0.02);
+  --kds-modifier: #ea580c;
+  --kds-badge-bg: #e5e7eb;
+  --kds-divider: #f0f1f3;
+
+  /* Toolbar */
+  --kds-toolbar: #ffffff;
+  --kds-toolbar-border: #e5e7eb;
+
+  /* Shadows */
+  --kds-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --kds-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  /* Radius */
+  --kds-radius: 12px;
+  --kds-radius-sm: 8px;
+
+  /* Transitions */
+  --kds-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--kds-bg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--kds-text);
+  margin: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar — subtle light */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--kds-text-dim);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--kds-text-muted);
+}
+
+/* Utility classes */
+.kds-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--kds-badge-bg);
+  color: var(--kds-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+/* Pulse animation for new tickets */
+@keyframes kds-pulse-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes kds-slide-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+}
+
+@keyframes kds-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--kds-urgent-glow); }
+  50% { box-shadow: 0 0 16px 3px var(--kds-urgent-glow); }
+}
+
+/* Ticket enter/leave transitions */
+.ticket-enter-active {
+  animation: kds-pulse-in 0.4s ease-out;
+}
+
+.ticket-leave-active {
+  animation: kds-slide-out 0.2s ease-in forwards;
+  position: absolute;
+  pointer-events: none;
+}
+
+.ticket-move {
+  transition: transform 0.3s ease;
+}
