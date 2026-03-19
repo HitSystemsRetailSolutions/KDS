@@ -38,6 +38,14 @@
         </button>
 
         <button
+          class="kds-btn kds-btn--icon"
+          @click="$router.push('/settings')"
+          title="Configuración"
+        >
+          <span>⚙️</span>
+        </button>
+
+        <button
           class="kds-btn"
           :class="{ 'kds-btn--active': showHistory }"
           @click="toggleHistory"
@@ -56,7 +64,11 @@
     </header>
 
     <!-- Ticket Grid -->
-    <main class="kds-grid">
+    <main 
+      class="kds-grid" 
+      :class="[`layout-${settings.layout}`]"
+      :style="gridStyle"
+    >
       <TicketCard
         v-for="ticket in tickets"
         :key="ticket.id"
@@ -146,6 +158,31 @@ export default {
       isConnected: computed(() => KitchenService.state.isConnected),
       showHistory: computed(() => KitchenService.state.showHistory),
       soundEnabled: computed(() => KitchenService.state.soundEnabled),
+      settings: computed(() => KitchenService.state.settings),
+      gridStyle: computed(() => {
+        const { columns, layout } = KitchenService.state.settings;
+        
+        if (layout === 'grid') {
+          if (columns > 0) return { 'grid-template-columns': `repeat(${columns}, 1fr)` };
+          return { 'grid-template-columns': 'repeat(auto-fill, minmax(280px, 1fr))' };
+        }
+        
+        if (layout === 'columns') {
+          const cols = columns > 0 ? columns : 4;
+          return { 
+            'grid-template-columns': `repeat(${cols}, minmax(280px, 1fr))`,
+            'grid-auto-flow': 'column',
+            'grid-template-rows': '1fr',
+            'overflow-x': 'auto'
+          };
+        }
+
+        if (layout === 'list') {
+          return { 'display': 'flex', 'flex-direction': 'column', 'gap': '16px' };
+        }
+        
+        return {}; 
+      }),
       toggleHistory: KitchenService.toggleHistory,
       toggleSound: KitchenService.toggleSound,
       currentTime,
@@ -323,16 +360,89 @@ export default {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Ticket Grid ── */
+/* ── Ticket Grid Layouts ── */
 .kds-grid {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 16px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 10px;
+  gap: 16px;
   align-content: start;
   -webkit-overflow-scrolling: touch;
+}
+
+.layout-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.layout-columns {
+  align-content: stretch;
+  overflow-x: auto;
+  height: 100%;
+}
+
+.layout-columns :deep(.kds-ticket) {
+  height: 100%;
+}
+
+.layout-list {
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 95%;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.layout-list :deep(.kds-ticket) {
+  flex-direction: row;
+  height: auto;
+  border-left: 8px solid var(--kds-accent);
+  border-radius: 12px;
+  box-shadow: var(--kds-shadow-sm);
+}
+
+.layout-list :deep(.kds-ticket__header) {
+  width: 160px;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid var(--kds-divider);
+  padding: 16px;
+  background: var(--kds-surface);
+}
+
+.layout-list :deep(.kds-ticket__body) {
+  max-height: 400px;
+  flex: 1;
+  padding: 12px 20px;
+  overflow-y: auto;
+}
+
+.layout-list :deep(.kds-item) {
+  border-bottom: 1px solid var(--kds-divider);
+  padding: 8px 0;
+}
+
+.layout-list :deep(.kds-item:last-child) {
+  border-bottom: none;
+}
+
+.layout-columns {
+  align-content: stretch;
+  overflow-x: auto;
+  height: calc(100vh - 80px); /* Fill screen minus toolbar */
+  padding-bottom: 20px;
+}
+
+.layout-columns :deep(.kds-ticket) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-columns :deep(.kds-ticket__body) {
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* ── Empty State ── */

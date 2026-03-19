@@ -7,6 +7,11 @@ const routes = [
     name: "KitchenBoard",
     component: KitchenBoard,
   },
+  {
+    path: "/settings",
+    name: "Settings",
+    component: () => import("../modules/settings/views/SettingsView.vue"),
+  },
 ];
 
 const router = createRouter({

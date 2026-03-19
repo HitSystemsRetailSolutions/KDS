@@ -1,10 +1,10 @@
 <template>
-  <div class="kds-ticket" :class="ticketStatusClass">
+  <div class="kds-ticket" :class="[ticketStatusClass, fontSizeClass]">
     <!-- Header Strip -->
     <div class="kds-ticket__header" :class="headerColorClass">
       <div class="kds-ticket__table">
         <span class="kds-ticket__table-name">{{ tableDisplayName }}</span>
-        <span class="kds-ticket__diners">
+        <span v-if="settings.showDiners" class="kds-ticket__diners">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path
               d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
@@ -13,7 +13,7 @@
           {{ ticket.diners }}
         </span>
       </div>
-      <div class="kds-ticket__timer">{{ liveTimer }}</div>
+      <div v-if="settings.showTimers" class="kds-ticket__timer">{{ liveTimer }}</div>
     </div>
 
     <!-- Items grouped by course -->
@@ -42,7 +42,7 @@
             <div class="kds-item__info">
               <span class="kds-item__name">{{ item.name }}</span>
               <span v-if="item.notes" class="kds-item__notes"
-                >⚠ {{ item.notes }}</span
+                >{{ item.notes }}</span
               >
               <div
                 v-if="item.supplements?.length"
@@ -149,22 +149,26 @@ export default {
       return (now - new Date(props.ticket.timestamp).getTime()) / 60000;
     });
 
+    const settings = computed(() => KitchenService.state.settings);
+    const fontSizeClass = computed(() => `fontSize-${settings.value.fontSize}`);
+
     // Table display name
     const tableDisplayName = computed(() => {
       return props.ticket.tableName || "Mesa";
     });
 
-    // Header color based on elapsed time
+    // Dynamic header color based on time and settings
     const headerColorClass = computed(() => {
       const mins = elapsedMinutes.value;
-      if (mins > 15) return "kds-header--urgent";
-      if (mins > 5) return "kds-header--warning";
+      const { timerWarning, timerUrgent } = settings.value;
+
+      if (mins >= (timerUrgent || 15)) return "kds-header--urgent";
+      if (mins >= (timerWarning || 5)) return "kds-header--warning";
       return "kds-header--fresh";
     });
 
-    // Ticket-level status class (for glow on urgent)
     const ticketStatusClass = computed(() => {
-      if (elapsedMinutes.value > 15) return "kds-ticket--urgent";
+      if (elapsedMinutes.value >= (settings.value.timerUrgent || 15)) return "kds-ticket--urgent";
       return "";
     });
 
@@ -242,6 +246,8 @@ export default {
       activeCourses,
       allItemsCount,
       bumpTicket,
+      settings,
+      fontSizeClass,
     };
   },
 };
@@ -249,6 +255,11 @@ export default {
 
 <style scoped>
 .kds-ticket {
+  /* Font Size Variants */
+  &.fontSize-small { --kds-font-scale: 0.85; }
+  &.fontSize-medium { --kds-font-scale: 1; }
+  &.fontSize-large { --kds-font-scale: 1.25; }
+
   background: var(--kds-card);
   border: 1px solid var(--kds-card-border);
   border-radius: var(--kds-radius);
@@ -298,7 +309,7 @@ export default {
 
 .kds-ticket__table-name {
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--kds-font-scale, 1));
   color: white;
   line-height: 1.2;
 }
@@ -314,7 +325,7 @@ export default {
 
 .kds-ticket__timer {
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--kds-font-scale, 1));
   color: white;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
@@ -403,14 +414,14 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
+  min-width: calc(22px * var(--kds-font-scale, 1));
+  height: calc(22px * var(--kds-font-scale, 1));
   padding: 0 4px;
   border-radius: 4px;
   background: var(--kds-badge-bg);
   color: var(--kds-text);
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--kds-font-scale, 1));
   flex-shrink: 0;
 }
 
@@ -423,16 +434,17 @@ export default {
 
 .kds-item__name {
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--kds-font-scale, 1));
   color: var(--kds-text);
   transition: opacity var(--kds-transition);
 }
 
 .kds-item__notes {
-  font-size: 0.65rem;
-  color: var(--kds-modifier);
+  font-size: calc(0.72rem * var(--kds-font-scale, 1));
+  color: #fbbf24; /* Amber/Yellow for high visibility */
   font-style: italic;
-  font-weight: 500;
+  font-weight: 600;
+  margin-top: 1px;
 }
 
 .kds-item__supplements {
