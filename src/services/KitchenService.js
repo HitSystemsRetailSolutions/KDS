@@ -224,17 +224,25 @@ const transformCestaToTicket = async (cesta) => {
   // Skip cestas with no items
   if (!cesta.lista || cesta.lista.length === 0) return null;
 
-  // Filter to items that have a kitchen printer assigned AND have been sent to prepare (printed)
+  // Filter to items that contain something for the kitchen (either the item itself, or its menu sub-items)
   const kitchenItems = cesta.lista.filter((item) => {
-    // Must have been printed (sent to prepare)
-    const isPrinted =
+    const rootPrinted =
       (item.printed && item.printed > 0) ||
       (item.instancias && item.instancias.some((i) => i.printed));
+    const rootHasPrinter = !!item.impresora;
 
-    if (!isPrinted) return false;
+    if (rootPrinted && rootHasPrinter) return true;
 
-    // And must have a kitchen printer assigned
-    if (item.impresora) return true;
+    // Check if any menu sub-item is printed and has a printer
+    if (item.articulosMenu && item.articulosMenu.length > 0) {
+      const hasPrintedSubItem = item.articulosMenu.some((sub) => {
+        const subPrinted =
+          (sub.printed && sub.printed > 0) ||
+          (sub.instancias && sub.instancias.some((i) => i.printed));
+        return subPrinted && !!sub.impresora;
+      });
+      if (hasPrintedSubItem) return true;
+    }
 
     return false;
   });
@@ -244,6 +252,7 @@ const transformCestaToTicket = async (cesta) => {
   // Collect all article IDs (regular and menu sub-items) for familia lookup
   const allArticleIds = [];
   kitchenItems.forEach((item) => {
+    // Only push root id if it actually goes to kitchen
     allArticleIds.push(item.idArticulo);
     if (item.articulosMenu && item.articulosMenu.length > 0) {
       item.articulosMenu.forEach((sub) => allArticleIds.push(sub.idArticulo));
@@ -259,25 +268,36 @@ const transformCestaToTicket = async (cesta) => {
   const itemsByFamilia = {}; // { familiaName: [ items... ] }
 
   kitchenItems.forEach((item, index) => {
-    // Calculate effective printed quantity
     const printedQty =
       item.printed ||
       (item.instancias ? item.instancias.filter((i) => i.printed).length : 0);
+    const rootHasPrinter = !!item.impresora;
 
     if (item.articulosMenu && item.articulosMenu.length > 0) {
       // Process menu sub-items
       item.articulosMenu.forEach((subItem, subIndex) => {
+        let subPrintedQty =
+          subItem.printed ||
+          (subItem.instancias
+            ? subItem.instancias.filter((i) => i.printed).length
+            : 0);
+
+        // Fallback to parent printed quantity if subitem doesn't track its own
+        if (subPrintedQty === 0 && printedQty > 0) {
+          subPrintedQty = (printedQty / item.unidades) * subItem.unidades;
+        }
+
+        // Only include if it actually goes to kitchen
+        if (subPrintedQty <= 0 || !subItem.impresora) return;
+
         const familia = familiaCache[subItem.idArticulo] || "OTROS";
         if (!itemsByFamilia[familia]) itemsByFamilia[familia] = [];
-
-        const effectiveSubQty = (printedQty / item.unidades) * subItem.unidades;
 
         let currentStatus = subItem.kdsStatus || "PENDING";
         let currentReadyCount = subItem.readyCount || 0;
 
-        if (currentStatus === "READY" && currentReadyCount < effectiveSubQty) {
+        if (currentStatus === "READY" && currentReadyCount < subPrintedQty) {
           currentStatus = currentReadyCount > 0 ? "PREPARING" : "PENDING";
-          // Auto-sync back to backend if needed, or just let UI naturally push next update
         }
 
         itemsByFamilia[familia].push({
@@ -285,7 +305,7 @@ const transformCestaToTicket = async (cesta) => {
           backendId: subItem.instanceId || subItem.idArticulo.toString(),
           idArticulo: subItem.idArticulo,
           name: subItem.nombre,
-          quantity: effectiveSubQty,
+          quantity: subPrintedQty,
           notes: subItem.comentario || "",
           supplements: (() => {
             let sups = [];
@@ -304,7 +324,9 @@ const transformCestaToTicket = async (cesta) => {
         });
       });
     } else {
-      // Process regular item
+      // Regular single item
+      if (printedQty <= 0 || !rootHasPrinter) return;
+
       const familia = familiaCache[item.idArticulo] || "OTROS";
       if (!itemsByFamilia[familia]) itemsByFamilia[familia] = [];
 
@@ -419,22 +441,9 @@ const init = async () => {
         0,
       );
 
-      // Skip recently bumped cestas — they'll be cleaned up by the backend
       const now = Date.now();
-      const filteredCestas = cestas.filter((c) => {
-        const bumpTime = state.bumpedTickets[c._id];
-        if (!bumpTime) return true;
-        // Auto-expire after 30s
-        if (now - bumpTime > 30000) {
-          delete state.bumpedTickets[c._id];
-          return true;
-        }
-        return false;
-      });
-
-      // Filter and transform (async for familia lookups)
       const activeTickets = (
-        await Promise.all(filteredCestas.map(transformCestaToTicket))
+        await Promise.all(cestas.map(transformCestaToTicket))
       ).filter((ticket) => ticket !== null);
 
       const newItemCount = activeTickets.reduce(
@@ -447,15 +456,29 @@ const init = async () => {
         0,
       );
 
-      // Play sound if new tickets arrived OR items were added
+      // Play sound only if genuinely new content arrived AND a cooldown has passed
+      const now2 = Date.now();
+      const soundCooldownMs = 3000;
+
+      const hasMoreTickets = activeTickets.length > prevCount;
+      const hasMoreItems = newItemCount > prevItemCount;
+
       if (
-        (activeTickets.length > prevCount || newItemCount > prevItemCount) &&
-        (prevCount > 0 || prevItemCount > 0)
+        isInitialized &&
+        !isSoundPending &&
+        (hasMoreTickets || hasMoreItems) &&
+        now2 - lastSoundAt > soundCooldownMs
       ) {
+        isSoundPending = true;
+        lastSoundAt = now2;
         playNewTicketSound();
+        setTimeout(() => {
+          isSoundPending = false;
+        }, soundCooldownMs);
       }
 
       state.tickets = activeTickets;
+      isInitialized = true;
 
       // Cleanup orphaned kitchenState entries
       cleanupOldState();
@@ -611,39 +634,59 @@ const toggleSound = () => {
   // localStorage.setItem('kdsSoundEnabled', JSON.stringify(state.soundEnabled)); // Removed localStorage save
 };
 
-const playNewTicketSound = () => {
-  if (!state.soundEnabled) return;
+// Sound cooldown — prevents duplicate triggers from rapid socket updates
+let lastSoundAt = 0;
+let isInitialized = false;
+let isSoundPending = false;
+
+const playNewTicketSound = (typeOverride) => {
+  if (!state.soundEnabled && !typeOverride) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const type = state.settings.soundType || "classic";
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const type = typeOverride || state.settings.soundType || "classic";
+
+    const playTone = (
+      freq,
+      waveType,
+      duration,
+      volume = 0.3,
+      startOffset = 0,
+    ) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = waveType;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + startOffset);
+      gain.gain.setValueAtTime(volume, ctx.currentTime + startOffset);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        ctx.currentTime + startOffset + duration,
+      );
+      osc.start(ctx.currentTime + startOffset);
+      osc.stop(ctx.currentTime + startOffset + duration);
+    };
 
     if (type === "minimal") {
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.1);
+      // Single short beep
+      playTone(523, "sine", 0.12, 0.2);
     } else if (type === "digital") {
-      osc.type = "square";
-      osc.frequency.setValueAtTime(1200, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.05);
+      // Two quick square beeps
+      playTone(1200, "square", 0.06, 0.15, 0);
+      playTone(1600, "square", 0.06, 0.15, 0.09);
+    } else if (type === "chime") {
+      // Gentle ascending chime
+      playTone(523, "sine", 0.3, 0.25, 0);
+      playTone(659, "sine", 0.3, 0.2, 0.18);
+      playTone(784, "sine", 0.4, 0.18, 0.36);
+    } else if (type === "alert") {
+      // Urgent double beep
+      playTone(880, "sawtooth", 0.15, 0.22, 0);
+      playTone(880, "sawtooth", 0.15, 0.22, 0.22);
     } else {
-      // classic
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
+      // classic — two-note ding
+      playTone(880, "sine", 0.25, 0.3, 0);
+      playTone(1100, "sine", 0.25, 0.25, 0.18);
     }
   } catch (e) {
     console.warn("Sound not supported", e);
@@ -654,39 +697,40 @@ const bumpTicket = (ticketId) => {
   const ticket = state.tickets.find((t) => t.id === ticketId);
   if (!ticket) return;
 
-  // Calculate prep time (incremental average)
-  const completedAt = state.kitchenState[`${ticketId}_completedAt`];
-  const endTime = completedAt || Date.now();
-  const prepDuration = (endTime - new Date(ticket.timestamp).getTime()) / 1000;
-  // Cap prepTimes to last 50 to prevent unbounded growth
-  if (state.prepTimes.length >= 50) state.prepTimes.shift();
-  state.prepTimes.push(prepDuration);
-  const n = state.prepTimes.length;
-  state.avgPrepTime =
-    state.avgPrepTime + (prepDuration - state.avgPrepTime) / n;
-  state.completedToday++;
-
-  // Mark all items as SERVED (this is now ephemeral, backend handles actual status)
+  // Mark all items as SERVED (local optimistic update)
   ticket.courses.forEach((course) => {
     course.items.forEach((item) => {
-      state.kitchenState[`${ticketId}_${item.id}`] = "SERVED";
+      item.status = "SERVED";
     });
   });
 
-  // Remove ticket from array immediately for instant UI removal
-  const idx = state.tickets.findIndex((t) => t.id === ticketId);
-  if (idx !== -1) state.tickets.splice(idx, 1);
+  // Calculate prep time
+  const completedAt = Date.now();
+  const prepDuration = (completedAt - new Date(ticket.timestamp).getTime()) / 1000;
+  if (state.prepTimes.length >= 50) state.prepTimes.shift();
+  state.prepTimes.push(prepDuration);
+  const n = state.prepTimes.length;
+  state.avgPrepTime = state.avgPrepTime + (prepDuration - state.avgPrepTime) / n;
+  state.completedToday++;
 
-  // Update stateVersion immediately for instant UI response
+  // Update stateVersion immediately
   state.stateVersion++;
 
-  // Track this ticket as bumped so cargarCestas skips it
-  state.bumpedTickets[ticketId] = Date.now();
-
-  // Persist bump to MongoDB so other screens see the removal
+  // Persist bump to backend
   axios
     .post("cestas/bumpKdsTicket", { idCesta: ticketId })
     .catch((err) => console.error("Failed to bump ticket globally", err));
+};
+
+const restoreTicket = (ticketId) => {
+  // Persist restore to backend
+  axios
+    .post("cestas/restoreKdsTicket", { idCesta: ticketId })
+    .then(() => {
+      // Force reload to see the change immediately
+      // socket.emit('cargarCestas'); // This will trigger automatically from backend broadcast
+    })
+    .catch((err) => console.error("Failed to restore ticket", err));
 };
 
 const updateSetting = (key, value) => {
@@ -746,10 +790,12 @@ export default {
   toggleHistory,
   toggleSound,
   bumpTicket,
+  restoreTicket,
   hideArticle,
   isArticleHidden,
   getItemStatus,
   getCompletedAt,
   getReadyCount,
   updateSetting,
+  playNewTicketSound,
 };

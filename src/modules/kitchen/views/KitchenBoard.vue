@@ -51,12 +51,15 @@
           @click="toggleHistory"
         >
           <span class="kds-btn__icon">📋</span>
-          {{ showHistory ? 'Ocultar Acabadas' : 'Ver Acabadas' }}
+          {{ showHistory ? "Ocultar Acabadas" : "Ver Acabadas" }}
         </button>
 
-        <div class="kds-connection" :class="isConnected ? 'kds-connection--on' : 'kds-connection--off'">
+        <div
+          class="kds-connection"
+          :class="isConnected ? 'kds-connection--on' : 'kds-connection--off'"
+        >
           <span class="kds-connection__dot"></span>
-          {{ isConnected ? 'Conectado' : 'Sin conexión' }}
+          {{ isConnected ? "Conectado" : "Sin conexión" }}
         </div>
 
         <div class="kds-clock">{{ currentTime }}</div>
@@ -64,8 +67,8 @@
     </header>
 
     <!-- Ticket Grid -->
-    <main 
-      class="kds-grid" 
+    <main
+      class="kds-grid"
       :class="[`layout-${settings.layout}`]"
       :style="gridStyle"
     >
@@ -73,6 +76,7 @@
         v-for="ticket in tickets"
         :key="ticket.id"
         :ticket="ticket"
+        :layout="settings.layout"
         @bump="handleBump"
       />
 
@@ -94,21 +98,21 @@
 </template>
 
 <script>
-import { computed, onMounted, ref } from 'vue';
-import KitchenService from '@/services/KitchenService';
-import TicketCard from '@/modules/kitchen/components/KitchenTicket.vue';
-import moment from 'moment';
+import { computed, onMounted, ref } from "vue";
+import KitchenService from "@/services/KitchenService";
+import TicketCard from "@/modules/kitchen/components/KitchenTicket.vue";
+import moment from "moment";
 
 export default {
-  name: 'KitchenBoard',
+  name: "KitchenBoard",
   components: { TicketCard },
   setup() {
-    const currentTime = ref(moment().format('HH:mm'));
+    const currentTime = ref(moment().format("HH:mm"));
 
     onMounted(() => {
       KitchenService.init();
       setInterval(() => {
-        currentTime.value = moment().format('HH:mm');
+        currentTime.value = moment().format("HH:mm");
       }, 1000);
     });
 
@@ -122,17 +126,17 @@ export default {
       const _ = KitchenService.state.stateVersion;
       if (KitchenService.state.showHistory) return all;
       // Hide tickets where all visible items are done
-      return all.filter(ticket => {
-        const hasActive = ticket.courses.some(course =>
-          course.items.some(item => {
+      return all.filter((ticket) => {
+        const hasActive = ticket.courses.some((course) =>
+          course.items.some((item) => {
             // Skip hidden articles — they don't count
             if (KitchenService.isArticleHidden(item.idArticulo)) return false;
             const status = KitchenService.getItemStatus(ticket.id, item.id);
-            if (status === 'READY' || status === 'SERVED') return false;
+            if (status === "READY" || status === "SERVED") return false;
             // Check quantity-based done
             const readyCount = KitchenService.getReadyCount(ticket.id, item.id);
             return readyCount < item.quantity;
-          })
+          }),
         );
         return hasActive;
       });
@@ -143,16 +147,21 @@ export default {
       activeCount: computed(() => tickets.value.length),
       avgPrepTime: computed(() => {
         const avg = KitchenService.state.avgPrepTime;
-        if (!avg || avg === 0) return '--:--';
+        if (!avg || avg === 0) return "--:--";
         const totalSecs = Math.floor(avg);
         const hours = Math.floor(totalSecs / 3600);
         const mins = Math.floor((totalSecs % 3600) / 60);
         const secs = totalSecs % 60;
-        
+
         if (hours > 0) {
-          return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          return `${hours}:${String(mins).padStart(2, "0")}:${String(
+            secs,
+          ).padStart(2, "0")}`;
         }
-        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(
+          2,
+          "0",
+        )}`;
       }),
       completedToday: computed(() => KitchenService.state.completedToday || 0),
       isConnected: computed(() => KitchenService.state.isConnected),
@@ -161,34 +170,32 @@ export default {
       settings: computed(() => KitchenService.state.settings),
       gridStyle: computed(() => {
         const { columns, layout } = KitchenService.state.settings;
-        
-        if (layout === 'grid') {
-          if (columns > 0) return { 'grid-template-columns': `repeat(${columns}, 1fr)` };
-          return { 'grid-template-columns': 'repeat(auto-fill, minmax(280px, 1fr))' };
-        }
-        
-        if (layout === 'columns') {
-          const cols = columns > 0 ? columns : 4;
-          return { 
-            'grid-template-columns': `repeat(${cols}, minmax(280px, 1fr))`,
-            'grid-auto-flow': 'column',
-            'grid-template-rows': '1fr',
-            'overflow-x': 'auto'
+
+        if (layout === "grid") {
+          if (columns > 0)
+            return { "grid-template-columns": `repeat(${columns}, 1fr)` };
+          return {
+            "grid-template-columns": "repeat(auto-fill, minmax(280px, 1fr))",
           };
         }
 
-        if (layout === 'list') {
-          return { 'display': 'flex', 'flex-direction': 'column', 'gap': '16px' };
+        if (layout === "columns") {
+          const cols = columns > 0 ? columns : 4;
+          return { "grid-template-columns": `repeat(${cols}, 300px)` };
         }
-        
-        return {}; 
+
+        if (layout === "list") {
+          return { display: "flex", "flex-direction": "column", gap: "16px" };
+        }
+
+        return {};
       }),
       toggleHistory: KitchenService.toggleHistory,
       toggleSound: KitchenService.toggleSound,
       currentTime,
-      handleBump
+      handleBump,
     };
-  }
+  },
 };
 </script>
 
@@ -284,7 +291,7 @@ export default {
   border-radius: var(--kds-radius-sm);
   background: transparent;
   color: var(--kds-text-muted);
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
   cursor: pointer;
@@ -376,74 +383,54 @@ export default {
 }
 
 .layout-columns {
-  align-content: stretch;
   overflow-x: auto;
-  height: 100%;
+  overflow-y: auto;
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
-.layout-columns :deep(.kds-ticket) {
-  height: 100%;
-}
+/* In columns mode, tickets size to their content (no stretch) */
 
 .layout-list {
-  max-width: 1000px;
+  max-width: 960px;
   margin: 0 auto;
-  width: 95%;
-  height: auto !important;
+  width: 100%;
   display: flex !important;
   flex-direction: column !important;
+  height: auto !important;
 }
 
 .layout-list :deep(.kds-ticket) {
   flex-direction: row;
   height: auto;
-  border-left: 8px solid var(--kds-accent);
-  border-radius: 12px;
-  box-shadow: var(--kds-shadow-sm);
+  border-left: 6px solid var(--kds-accent);
 }
 
 .layout-list :deep(.kds-ticket__header) {
-  width: 160px;
+  width: 180px;
+  flex-shrink: 0;
   flex-direction: column;
   justify-content: center;
   border-right: 1px solid var(--kds-divider);
   padding: 16px;
-  background: var(--kds-surface);
 }
 
 .layout-list :deep(.kds-ticket__body) {
-  max-height: 400px;
   flex: 1;
-  padding: 12px 20px;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
+  padding: 8px 16px;
 }
 
-.layout-list :deep(.kds-item) {
-  border-bottom: 1px solid var(--kds-divider);
-  padding: 8px 0;
+.layout-list :deep(.kds-ticket__bump) {
+  width: 80px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--kds-divider);
+  border-top: none;
+  border-radius: 0 var(--kds-radius) var(--kds-radius) 0;
 }
 
-.layout-list :deep(.kds-item:last-child) {
-  border-bottom: none;
-}
-
-.layout-columns {
-  align-content: stretch;
-  overflow-x: auto;
-  height: calc(100vh - 80px); /* Fill screen minus toolbar */
-  padding-bottom: 20px;
-}
-
-.layout-columns :deep(.kds-ticket) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.layout-columns :deep(.kds-ticket__body) {
-  flex: 1;
-  overflow-y: auto;
-}
+/* columns deep overrides handled above */
 
 /* ── Empty State ── */
 .kds-empty {

@@ -12,15 +12,15 @@
       </div>
 
       <div class="kds-toolbar__center">
-        <div 
+        <button 
           v-for="tab in tabs" 
           :key="tab.id"
-          class="nav-tab"
+          class="kds-tab"
           :class="{ active: activeTab === tab.id }"
           @click="activeTab = tab.id"
         >
-          {{ tab.name }}
-        </div>
+          {{ tab.label }}
+        </button>
       </div>
 
       <div class="kds-toolbar__right">
@@ -35,51 +35,48 @@
         <!-- Aspectos Section -->
         <div v-if="activeTab === 'aspectos'" class="settings-group">
           <div class="settings-card no-padding">
-            <h3 class="card-title p-4 mb-0">Distribución de Pantalla</h3>
+            <div class="layout-section-header">
+              <span class="layout-section-title">Distribución de Pantalla</span>
+              <span class="layout-section-hint">Elige cómo se organizan los tickets</span>
+            </div>
             
-            <div class="layout-list-vertical">
+            <div class="layout-grid-cards">
               <div 
                 v-for="lay in layoutOptions" 
                 :key="lay.id"
-                class="layout-row-card"
+                class="layout-card"
                 :class="{ active: settings.layout === lay.id }"
                 @click="save('layout', lay.id)"
               >
-                <div class="layout-row-visual">
-                   <!-- Real Mini-Mockup of the Board Layout -->
-                   <div :class="['mini-board', lay.id]">
-                     <div v-for="n in (lay.id === 'list' ? 3 : 6)" :key="n" class="mini-ticket">
-                       <div class="mini-ticket-header"></div>
-                       <div class="mini-ticket-line" v-for="l in 2" :key="l"></div>
-                     </div>
-                   </div>
-                </div>
-                <div class="layout-row-info">
-                  <div class="layout-row-header">
-                    <span class="layout-row-name">{{ lay.label }}</span>
-                    <div class="layout-row-check" v-if="settings.layout === lay.id">
-                      <span>✓ Selección Activa</span>
+                <div class="layout-card-preview">
+                  <div :class="['mini-board-dark', lay.id]">
+                    <div v-for="n in (lay.id === 'list' ? 3 : 6)" :key="n" class="mini-tk">
+                      <div class="mini-tk-hdr"></div>
+                      <div class="mini-tk-line" v-for="l in 2" :key="l"></div>
                     </div>
                   </div>
-                  <span class="layout-row-desc">{{ lay.desc }}</span>
+                </div>
+                <div class="layout-card-footer">
+                  <span class="layout-card-name">{{ lay.label }}</span>
+                  <div class="layout-card-active-dot" v-if="settings.layout === lay.id"></div>
                 </div>
               </div>
             </div>
 
-            <div v-if="settings.layout !== 'list'" class="setting-row mt-3">
-              <div class="setting-text">
-                <div class="setting-label">Columnas (Fijo)</div>
-                <div class="setting-hint">0 para ajuste automático dinámico</div>
-              </div>
-              <div class="segmented-control">
-                <button 
-                  v-for="col in columnOptions" 
+            <div class="columns-picker-section">
+              <div class="columns-picker-label">Número de Columnas</div>
+              <div class="columns-picker-grid">
+                <button
+                  v-for="col in columnOptions"
                   :key="col.id"
-                  class="segment-btn"
+                  class="col-pick-btn"
                   :class="{ active: settings.columns === col.id }"
                   @click="save('columns', col.id)"
                 >
-                  {{ col.label }}
+                  <span class="col-pick-icon">
+                    <span v-for="c in (col.id === 0 ? 4 : col.id)" :key="c" class="col-pick-bar"></span>
+                  </span>
+                  <span class="col-pick-label">{{ col.label }}</span>
                 </button>
               </div>
             </div>
@@ -154,68 +151,63 @@
 
         <!-- Sonido Section -->
         <div v-if="activeTab === 'sonido'" class="settings-group">
-          <div class="settings-card">
-            <h3 class="card-title">Alertas Sonoras</h3>
-            
-            <div class="setting-row">
-              <div class="setting-text">
-                <div class="setting-label">Tipo de Alerta</div>
-                <div class="setting-hint">Sonido para nuevos pedidos</div>
-              </div>
-              <div class="segmented-control">
-                <button 
-                  v-for="snd in soundOptions" 
-                  :key="snd.id"
-                  class="segment-btn"
-                  :class="{ active: settings.soundType === snd.id }"
-                  @click="save('soundType', snd.id)"
-                >
-                  {{ snd.label }}
-                </button>
+          <div class="settings-card no-padding">
+            <div class="layout-section-header">
+              <span class="layout-section-title">Tipo de Alerta Sonora</span>
+              <span class="layout-section-hint">Pulsa ▶ para escuchar antes de seleccionar</span>
+            </div>
+
+            <div class="sound-options-list">
+              <div
+                v-for="snd in soundOptions"
+                :key="snd.id"
+                class="sound-option-row"
+                :class="{ active: settings.soundType === snd.id }"
+                @click="saveAndPreview('soundType', snd.id)"
+              >
+                <div class="sound-option-icon">{{ snd.icon }}</div>
+                <div class="sound-option-info">
+                  <div class="sound-option-name">{{ snd.label }}</div>
+                  <div class="sound-option-desc">{{ snd.desc }}</div>
+                </div>
+                <div class="sound-option-right">
+                  <div class="sound-option-active-dot" v-if="settings.soundType === snd.id"></div>
+                  <button
+                    class="sound-preview-btn"
+                    @click.stop="previewSound(snd.id)"
+                    title="Escuchar"
+                  >▶</button>
+                </div>
               </div>
             </div>
+          </div>
+
+          <div class="settings-card mt-3">
+            <h3 class="card-title">Opciones</h3>
 
             <div class="setting-row">
               <div class="setting-text">
                 <div class="setting-label">Repetir en Urgentes</div>
-                <div class="setting-hint">Recordatorio sonoro para retrasos</div>
+                <div class="setting-hint">Recordatorio sonoro para pedidos con retraso</div>
               </div>
               <label class="kds-switch">
                 <input type="checkbox" v-model="settings.repeatUrgent" @change="save('repeatUrgent', settings.repeatUrgent)">
                 <span class="slider"></span>
               </label>
             </div>
-          </div>
-        </div>
 
-        <!-- Teclas Section -->
-        <div v-if="activeTab === 'teclas'" class="settings-group">
-          <div class="settings-card">
-            <h3 class="card-title">Interactividad</h3>
-            
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Modo Táctil Extendido</div>
-                <div class="setting-hint">Botones ampliados para pantallas táctiles</div>
+                <div class="setting-label">Sonidos activados</div>
+                <div class="setting-hint">Activar o desactivar todos los sonidos</div>
               </div>
               <label class="kds-switch">
-                <input type="checkbox" v-model="settings.touchMode" @change="save('touchMode', settings.touchMode)">
+                <input type="checkbox" v-model="soundEnabled" @change="toggleSound">
                 <span class="slider"></span>
               </label>
             </div>
           </div>
-
-          <div class="keyboard-map mt-3">
-             <div class="map-item">
-               <span class="key-tag">ESPACIO</span>
-               <span class="key-function">Finalizar ticket seleccionado</span>
-             </div>
-             <div class="map-item">
-               <span class="key-tag">0-9</span>
-               <span class="key-function">Cambiar estado de líneas del ticket</span>
-             </div>
-          </div>
-        </div>
+         </div>
 
       </div>
     </main>
@@ -234,9 +226,8 @@ export default {
     const currentTime = ref(moment().format('HH:mm'));
     
     const tabs = [
-      { id: 'aspectos', name: 'ASPECTOS', icon: 'palette' },
-      { id: 'sonido', name: 'SONIDO', icon: 'volume-up' },
-      { id: 'teclas', name: 'TECLAS', icon: 'keyboard' },
+      { id: 'aspectos', label: 'Aspectos' },
+      { id: 'sonido', label: 'Sonido' }
     ];
 
     const fontSizeOptions = [
@@ -254,33 +245,63 @@ export default {
     ];
 
     const soundOptions = [
-      { id: 'classic', label: 'CLÁSICO' },
-      { id: 'minimal', label: 'MÍNIMO' },
-      { id: 'digital', label: 'DIGITAL' }
-    ];
-
-    const layoutOptions = [
-      { 
-        id: 'grid', 
-        label: 'Mosaico (Grid)', 
-        desc: 'Distribución en cuadrícula para pantallas grandes. Aprovecha todo el espacio disponible.' 
+      {
+        id: 'classic',
+        label: 'Clásico',
+        icon: '🔔',
+        desc: 'Dos tonos suaves ascendentes, fácil de escuchar'
       },
-      { 
-        id: 'columns', 
-        label: 'Columnas Verticales', 
-        desc: 'Flujo estilo Kanban. Ideal para cocinas con mucho movimiento y estados.' 
+      {
+        id: 'minimal',
+        label: 'Mínimo',
+        icon: '🔕',
+        desc: 'Un pitido corto y discreto, ideal para ambientes tranquilos'
       },
-      { 
-        id: 'list', 
-        label: 'Lista Lineal (Todo Recto)', 
-        desc: 'Tickets a pantalla completa. Lectura rápida y secuencial de pedidos.' 
+      {
+        id: 'digital',
+        label: 'Digital',
+        icon: '⚡',
+        desc: 'Dos beeps electrónicos rápidos, estilo retro'
+      },
+      {
+        id: 'chime',
+        label: 'Carillón',
+        icon: '🎵',
+        desc: 'Tres notas ascendentes meló dicas, sonido agradable'
+      },
+      {
+        id: 'alert',
+        label: 'Alerta',
+        icon: '🚨',
+        desc: 'Doble beep urgente, máxima atención'
       }
     ];
 
+    const layoutOptions = [
+      { id: 'grid', label: 'Mosaico' },
+      { id: 'columns', label: 'Columnas' },
+      { id: 'list', label: 'Lista' }
+    ];
+
     const settings = computed(() => KitchenService.state.settings);
+    const soundEnabled = computed(() => KitchenService.state.soundEnabled);
 
     const save = (key, value) => {
       KitchenService.updateSetting(key, value);
+    };
+
+    const previewSound = (typeId) => {
+      KitchenService.playNewTicketSound(typeId);
+    };
+
+    const saveAndPreview = (key, value) => {
+      KitchenService.updateSetting(key, value);
+      // Short delay so the setting is saved before playing
+      setTimeout(() => KitchenService.playNewTicketSound(value), 50);
+    };
+
+    const toggleSound = () => {
+      KitchenService.toggleSound();
     };
 
     onMounted(() => {
@@ -293,7 +314,11 @@ export default {
       activeTab,
       tabs,
       settings,
+      soundEnabled,
       save,
+      previewSound,
+      saveAndPreview,
+      toggleSound,
       currentTime,
       fontSizeOptions,
       columnOptions,
@@ -365,7 +390,7 @@ export default {
   height: 100%;
 }
 
-.nav-tab {
+.kds-tab {
   padding: 0 24px;
   height: 100%;
   display: flex;
@@ -377,10 +402,12 @@ export default {
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
   letter-spacing: 1px;
+  background: none;
+  border: none;
 }
 
-.nav-tab:hover { color: var(--kds-text); }
-.nav-tab.active {
+.kds-tab:hover { color: var(--kds-text); }
+.kds-tab.active {
   color: var(--kds-accent);
   border-bottom-color: var(--kds-accent);
 }
@@ -395,12 +422,6 @@ export default {
 .settings-scroll-area {
   max-width: 600px;
   margin: 0 auto;
-}
-
-.layout-icon-img, .layout-svg-icon {
-  max-width: 60%;
-  max-height: 60%;
-  color: var(--kds-accent);
 }
 
 .settings-group {
@@ -431,107 +452,208 @@ export default {
 }
 .settings-card.no-padding { padding: 0; overflow: hidden; }
 
-/* Layout Row Cards */
-.layout-list-vertical {
+/* ── Layout Section Header ── */
+.layout-section-header {
+  padding: 20px 20px 12px;
+  border-bottom: 1px solid var(--kds-divider);
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+.layout-section-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--kds-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.layout-section-hint {
+  font-size: 0.72rem;
+  color: var(--kds-text-muted);
 }
 
-.layout-row-card {
-  display: flex;
-  align-items: stretch;
-  padding: 24px;
+/* ── New Grid Layout Cards ── */
+.layout-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+
+.layout-card {
+  border-radius: 10px;
+  border: 2px solid var(--kds-card-border);
+  background: var(--kds-bg);
   cursor: pointer;
-  border-bottom: 1px solid var(--kds-divider);
-  transition: all 0.3s ease;
-  gap: 24px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 
-.layout-row-card:last-child { border-bottom: none; }
+.layout-card:hover {
+  border-color: var(--kds-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99,102,241,0.15);
+}
 
-.layout-row-card:hover {
+.layout-card.active {
+  border-color: var(--kds-accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+}
+
+.layout-card-preview {
+  aspect-ratio: 4/3;
+  background: #0f1117;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Dark Mini-Mockups ── */
+.mini-board-dark {
+  width: 100%;
+  height: 100%;
+  gap: 4px;
+  display: grid;
+}
+.mini-board-dark.grid {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+.mini-board-dark.columns {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr;
+}
+.mini-board-dark.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-tk {
+  background: #1a1d2e;
+  border: 1px solid #2a2d3e;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  padding: 3px;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.layout-card.active .mini-tk { border-color: rgba(99,102,241,0.4); }
+
+.mini-tk-hdr {
+  height: 6px;
+  background: #374151;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+.layout-card.active .mini-tk-hdr { background: var(--kds-accent); }
+
+.mini-tk-line {
+  height: 2px;
+  background: #2a2d3e;
+  border-radius: 1px;
+  width: 75%;
+}
+
+.layout-card-footer {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--kds-surface);
+  border-top: 1px solid var(--kds-divider);
+}
+
+.layout-card-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--kds-text);
+  letter-spacing: 0.5px;
+}
+
+.layout-card-active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kds-accent);
+  box-shadow: 0 0 6px var(--kds-accent);
+}
+
+/* ── Columns Picker ── */
+.columns-picker-section {
+  padding: 16px;
+  border-top: 1px solid var(--kds-divider);
+}
+
+.columns-picker-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--kds-text-muted);
+  margin-bottom: 10px;
+}
+
+.columns-picker-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.col-pick-btn {
+  flex: 1;
+  background: var(--kds-bg);
+  border: 2px solid var(--kds-card-border);
+  border-radius: 8px;
+  padding: 8px 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.col-pick-btn:hover {
+  border-color: var(--kds-accent);
   background: var(--kds-surface-hover);
 }
 
-.layout-row-card.active {
-  background: rgba(99, 102, 241, 0.04);
-  box-shadow: inset 4px 0 0 0 var(--kds-accent);
+.col-pick-btn.active {
+  border-color: var(--kds-accent);
+  background: rgba(99,102,241,0.08);
 }
 
-.layout-row-visual {
-  width: 140px;
-  height: 90px;
-  background: #f1f5f9;
-  border-radius: 8px;
-  padding: 8px;
-  flex-shrink: 0;
+.col-pick-icon {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e2e8f0;
-}
-
-.mini-board {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  gap: 4px;
-}
-
-.mini-board.grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
-.mini-board.columns { grid-auto-flow: column; grid-template-columns: repeat(3, 1fr); }
-.mini-board.list { display: flex; flex-direction: column; }
-
-.mini-ticket {
-  background: white;
-  border: 1px solid #cbd5e1;
-  border-radius: 2px;
-  display: flex;
-  flex-direction: column;
-  padding: 2px;
   gap: 2px;
+  height: 18px;
+  align-items: stretch;
 }
 
-.mini-ticket-header { height: 6px; background: #94a3b8; border-radius: 1px; }
-.mini-ticket-line { height: 2px; background: #e2e8f0; border-radius: 1px; width: 80%; }
-
-.active .mini-ticket-header { background: var(--kds-accent); }
-
-.layout-row-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+.col-pick-bar {
+  display: block;
+  width: 5px;
+  background: var(--kds-card-border);
+  border-radius: 1px;
+  transition: background 0.2s;
 }
 
-.layout-row-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.col-pick-btn.active .col-pick-bar {
+  background: var(--kds-accent);
 }
 
-.layout-row-name {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--kds-text);
-}
-
-.layout-row-desc {
-  font-size: 0.8rem;
-  color: var(--kds-text-muted);
-  line-height: 1.4;
-}
-
-.layout-row-check {
-  font-size: 0.7rem;
+.col-pick-label {
+  font-size: 0.65rem;
   font-weight: 700;
-  color: var(--kds-accent);
-  background: rgba(99, 102, 241, 0.1);
-  padding: 2px 8px;
-  border-radius: 99px;
-  text-transform: uppercase;
+  color: var(--kds-text-muted);
   letter-spacing: 0.5px;
+}
+
+.col-pick-btn.active .col-pick-label {
+  color: var(--kds-accent);
 }
 
 .setting-row {
@@ -618,35 +740,92 @@ export default {
 input:checked + .slider { background-color: var(--kds-accent); }
 input:checked + .slider:before { transform: translateX(22px); }
 
-/* ── Keyboard Map ── */
-.keyboard-map {
-  background: rgba(0,0,0,0.03);
-  padding: 16px;
-  border-radius: var(--kds-radius);
-  border: 1px dashed var(--kds-card-border);
+/* ── Sound Options ── */
+.sound-options-list {
+  display: flex;
+  flex-direction: column;
 }
 
-.map-item {
+.sound-option-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 16px;
+  padding: 16px 20px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--kds-divider);
+  transition: background 0.2s;
 }
 
-.key-tag {
-  background: var(--kds-surface);
-  border: 1px solid var(--kds-card-border);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: var(--kds-accent);
-  min-width: 60px;
+.sound-option-row:last-child { border-bottom: none; }
+
+.sound-option-row:hover { background: var(--kds-surface-hover); }
+
+.sound-option-row.active {
+  background: rgba(99,102,241,0.04);
+  box-shadow: inset 4px 0 0 0 var(--kds-accent);
+}
+
+.sound-option-icon {
+  font-size: 1.5rem;
+  width: 36px;
   text-align: center;
+  flex-shrink: 0;
 }
 
-.key-function {
-  font-size: 0.8rem;
+.sound-option-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sound-option-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--kds-text);
+}
+
+.sound-option-desc {
+  font-size: 0.75rem;
   color: var(--kds-text-muted);
+  margin-top: 2px;
+}
+
+.sound-option-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.sound-option-active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kds-accent);
+  box-shadow: 0 0 6px var(--kds-accent);
+}
+
+.sound-preview-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid var(--kds-accent);
+  background: rgba(99,102,241,0.08);
+  color: var(--kds-accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.sound-preview-btn:hover {
+  background: var(--kds-accent);
+  color: white;
+  transform: scale(1.1);
+}
+
+.sound-preview-btn:active {
+  transform: scale(0.95);
 }
 </style>

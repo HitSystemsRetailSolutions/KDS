@@ -1,5 +1,8 @@
 <template>
-  <div class="kds-ticket" :class="[ticketStatusClass, fontSizeClass]">
+  <div
+    class="kds-ticket"
+    :class="[ticketStatusClass, fontSizeClass, `layout-mode--${layout}`]"
+  >
     <!-- Header Strip -->
     <div class="kds-ticket__header" :class="headerColorClass">
       <div class="kds-ticket__table">
@@ -13,7 +16,9 @@
           {{ ticket.diners }}
         </span>
       </div>
-      <div v-if="settings.showTimers" class="kds-ticket__timer">{{ liveTimer }}</div>
+      <div v-if="settings.showTimers" class="kds-ticket__timer">
+        {{ liveTimer }}
+      </div>
     </div>
 
     <!-- Items grouped by course -->
@@ -41,9 +46,9 @@
             <span class="kds-item__qty">{{ remainingQty(item) }}</span>
             <div class="kds-item__info">
               <span class="kds-item__name">{{ item.name }}</span>
-              <span v-if="item.notes" class="kds-item__notes"
-                >{{ item.notes }}</span
-              >
+              <span v-if="item.notes" class="kds-item__notes">{{
+                item.notes
+              }}</span>
               <div
                 v-if="item.supplements?.length"
                 class="kds-item__supplements"
@@ -80,7 +85,7 @@
             </button>
 
             <button
-              v-if="isReady(item.id)"
+              v-if="isReady(item.id) || isServed(item.id)"
               class="kds-item-action kds-action-undo"
               title="Deshacer (volver a pendiente)"
               @click.stop="toggleItem(item.id, item.quantity, 'PENDING')"
@@ -98,11 +103,24 @@
     </div>
 
     <!-- Footer — Bump Button -->
-    <button class="kds-ticket__bump" @click="bumpTicket">
+    <button v-if="!showHistory" class="kds-ticket__bump" @click="bumpTicket">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
       </svg>
       FIN
+    </button>
+
+    <button
+      v-else-if="isCompleted"
+      class="kds-ticket__bump kds-ticket__bump--restore"
+      @click="restoreTicket"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path
+          d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"
+        />
+      </svg>
+      DESHACER
     </button>
   </div>
 </template>
@@ -118,6 +136,10 @@ export default {
     ticket: {
       type: Object,
       required: true,
+    },
+    layout: {
+      type: String,
+      default: "grid",
     },
   },
   emits: ["bump"],
@@ -168,7 +190,8 @@ export default {
     });
 
     const ticketStatusClass = computed(() => {
-      if (elapsedMinutes.value >= (settings.value.timerUrgent || 15)) return "kds-ticket--urgent";
+      if (elapsedMinutes.value >= (settings.value.timerUrgent || 15))
+        return "kds-ticket--urgent";
       return "";
     });
 
@@ -206,6 +229,14 @@ export default {
     };
 
     // Active courses with filtered items
+    const bumpTicket = () => {
+      emit("bump", props.ticket.id);
+    };
+
+    const allItemsCount = computed(() => {
+      return activeCourses.value.reduce((sum, c) => sum + c.items.length, 0);
+    });
+
     const activeCourses = computed(() => {
       const _ = KitchenService.state.stateVersion;
       return props.ticket.courses
@@ -225,12 +256,15 @@ export default {
         .filter((course) => course.items.length > 0);
     });
 
-    const allItemsCount = computed(() => {
-      return activeCourses.value.reduce((sum, c) => sum + c.items.length, 0);
+    const isCompleted = computed(() => {
+      // A ticket is considered completed if all items are SERVED
+      return props.ticket.courses.every((c) =>
+        c.items.every((item) => isServed(item.id)),
+      );
     });
 
-    const bumpTicket = () => {
-      emit("bump", props.ticket.id);
+    const restoreTicket = () => {
+      KitchenService.restoreTicket(props.ticket.id);
     };
 
     return {
@@ -246,6 +280,9 @@ export default {
       activeCourses,
       allItemsCount,
       bumpTicket,
+      restoreTicket,
+      isCompleted,
+      showHistory: computed(() => KitchenService.state.showHistory),
       settings,
       fontSizeClass,
     };
@@ -254,11 +291,64 @@ export default {
 </script>
 
 <style scoped>
+/* ── List Mode — horizontal row ── */
+.layout-mode--list {
+  flex-direction: row !important;
+  height: auto !important;
+  border-left: 6px solid var(--kds-accent) !important;
+  min-height: 0 !important;
+}
+
+.layout-mode--list .kds-ticket__header {
+  width: 160px;
+  flex-shrink: 0;
+  flex-direction: column !important;
+  justify-content: center;
+  align-items: flex-start;
+  border-right: 1px solid var(--kds-divider);
+  border-bottom: none;
+  padding: 12px 16px;
+}
+
+.layout-mode--list .kds-ticket__body {
+  flex: 1;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.layout-mode--list .kds-ticket__bump {
+  width: 72px;
+  flex-shrink: 0;
+  border-top: none;
+  border-left: 1px solid var(--kds-divider);
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
+  border-radius: 0;
+}
+
+.layout-mode--list .kds-ticket__table-name {
+  font-size: 1rem;
+}
+
+.layout-mode--list .kds-ticket__timer {
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
 .kds-ticket {
   /* Font Size Variants */
-  &.fontSize-small { --kds-font-scale: 0.85; }
-  &.fontSize-medium { --kds-font-scale: 1; }
-  &.fontSize-large { --kds-font-scale: 1.25; }
+  &.fontSize-small {
+    --kds-font-scale: 0.85;
+  }
+  &.fontSize-medium {
+    --kds-font-scale: 1;
+  }
+  &.fontSize-large {
+    --kds-font-scale: 1.25;
+  }
 
   background: var(--kds-card);
   border: 1px solid var(--kds-card-border);
@@ -532,12 +622,36 @@ export default {
   background: var(--kds-bump);
   border: none;
   color: white;
-  font-family: "Inter", sans-serif;
-  font-weight: 700;
-  font-size: 0.72rem;
-  letter-spacing: 1.5px;
+  width: 100%;
+  padding: 14px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
   cursor: pointer;
-  transition: background var(--kds-transition);
+  transition: all 0.2s;
+  border-top: 1px solid var(--kds-divider);
+  border-radius: 0 0 12px 12px;
+}
+
+.kds-ticket__bump:hover {
+  background: #0d9488;
+}
+
+.kds-ticket__bump:active {
+  background: #0f766e;
+}
+
+.kds-ticket__bump--restore {
+  background: #3b82f6; /* Blue for restoration */
+}
+
+.kds-ticket__bump--restore:hover {
+  background: #2563eb;
+}
+
+.kds-ticket__bump--restore:active {
+  background: #1d4ed8;
 }
 
 .kds-ticket__bump:hover {
