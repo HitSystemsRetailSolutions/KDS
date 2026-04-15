@@ -33,5 +33,5 @@ npm run build    # Producció
 ## Docker
 
 ```bash
-docker-compose up --build   # Port 3001
+docker-compose up --build   # Port 3002
 ```
