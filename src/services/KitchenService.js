@@ -311,6 +311,7 @@ const transformCestaToTicket = async (cesta) => {
         if (currentStatus === "READY" && currentReadyCount < subPrintedQty) {
           currentStatus = currentReadyCount > 0 ? "PREPARING" : "PENDING";
         }
+        if (currentStatus === "PENDING") currentReadyCount = 0;
 
         itemsByFamilia[familia].push({
           id: `${cesta._id}_menu_${item.idArticulo}_${index}_${subIndex}`,
@@ -348,6 +349,7 @@ const transformCestaToTicket = async (cesta) => {
       if (currentStatus === "READY" && currentReadyCount < printedQty) {
         currentStatus = currentReadyCount > 0 ? "PREPARING" : "PENDING";
       }
+      if (currentStatus === "PENDING") currentReadyCount = 0;
 
       itemsByFamilia[familia].push({
         id: `${cesta._id}_${item.idArticulo}_${index}`,
@@ -751,13 +753,24 @@ const bumpTicket = (ticketId) => {
 };
 
 const restoreTicket = (ticketId) => {
+  // Optimistic UI update — reset all SERVED items to PENDING immediately
+  const ticket = state.tickets.find((t) => t.id === ticketId);
+  if (ticket) {
+    ticket.courses.forEach((course) => {
+      course.items.forEach((item) => {
+        if (item.status === "SERVED" || item.status === "READY") {
+          item.status = "PENDING";
+          item.readyCount = 0;
+        }
+      });
+    });
+    state.stateVersion++;
+  }
+
   // Persist restore to backend
   axios
     .post("cestas/restoreKdsTicket", { idCesta: ticketId })
-    .then(() => {
-      // Force reload to see the change immediately
-      // socket.emit('cargarCestas'); // This will trigger automatically from backend broadcast
-    })
+    .then(() => { })
     .catch((err) => console.error("Failed to restore ticket", err));
 };
 
