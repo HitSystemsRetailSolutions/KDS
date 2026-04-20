@@ -8,6 +8,8 @@ const MOCK_MODE = false; // Set to false to test real backend
 const SOCKET_URL = `http://${window.location.hostname}:5051`;
 
 // State
+const printedCestaIds = new Set(); // Track cestas already sent to printer
+
 const state = reactive({
   tickets: [],
   kitchenState: {}, // Kept for ephemeral UI state (e.g., startedAt for timers)
@@ -36,6 +38,9 @@ const state = reactive({
     // Sonido
     soundType: "classic", // classic, minimal, digital
     repeatUrgent: false,
+    // Impresión
+    printEnabled: false,
+    printPrinter: "",
     // Teclas
     touchMode: false,
     keys: {
@@ -225,21 +230,28 @@ const transformCestaToTicket = async (cesta) => {
   if (!cesta.lista || cesta.lista.length === 0) return null;
 
   // Filter to items that contain something for the kitchen (either the item itself, or its menu sub-items)
+  const isKdsPrinter = (impresora) => {
+    if (typeof impresora !== 'string') return false;
+    const parts = impresora.split('_');
+    const printerName = parts.length > 1 ? parts[1] : parts[0];
+    return printerName.toLowerCase() === 'kds';
+  };
+
   const kitchenItems = cesta.lista.filter((item) => {
     const rootPrinted =
       (item.printed && item.printed > 0) ||
       (item.instancias && item.instancias.some((i) => i.printed));
-    const rootHasPrinter = !!item.impresora;
+    const rootHasPrinter = isKdsPrinter(item.impresora);
 
     if (rootPrinted && rootHasPrinter) return true;
 
-    // Check if any menu sub-item is printed and has a printer
+    // Check if any menu sub-item is printed and has a KDS printer
     if (item.articulosMenu && item.articulosMenu.length > 0) {
       const hasPrintedSubItem = item.articulosMenu.some((sub) => {
         const subPrinted =
           (sub.printed && sub.printed > 0) ||
           (sub.instancias && sub.instancias.some((i) => i.printed));
-        return subPrinted && !!sub.impresora;
+        return subPrinted && isKdsPrinter(sub.impresora);
       });
       if (hasPrintedSubItem) return true;
     }
@@ -271,7 +283,7 @@ const transformCestaToTicket = async (cesta) => {
     const printedQty =
       item.printed ||
       (item.instancias ? item.instancias.filter((i) => i.printed).length : 0);
-    const rootHasPrinter = !!item.impresora;
+    const rootHasPrinter = isKdsPrinter(item.impresora);
 
     if (item.articulosMenu && item.articulosMenu.length > 0) {
       // Process menu sub-items
@@ -287,8 +299,8 @@ const transformCestaToTicket = async (cesta) => {
           subPrintedQty = (printedQty / item.unidades) * subItem.unidades;
         }
 
-        // Only include if it actually goes to kitchen
-        if (subPrintedQty <= 0 || !subItem.impresora) return;
+        // Only include if it actually goes to KDS
+        if (subPrintedQty <= 0 || !isKdsPrinter(subItem.impresora)) return;
 
         const familia = familiaCache[subItem.idArticulo] || "OTROS";
         if (!itemsByFamilia[familia]) itemsByFamilia[familia] = [];
@@ -475,6 +487,22 @@ const init = async () => {
         setTimeout(() => {
           isSoundPending = false;
         }, soundCooldownMs);
+      }
+
+      // Print to physical printer if enabled
+      if (state.settings.printEnabled && state.settings.printPrinter) {
+        const prevTicketIds = new Set(state.tickets.map((t) => t.id));
+        for (const ticket of activeTickets) {
+          if (!prevTicketIds.has(ticket.id) && !printedCestaIds.has(ticket.id)) {
+            printedCestaIds.add(ticket.id);
+            axios
+              .post("impresora/imprimirDesdeKds", {
+                idCesta: ticket.id,
+                targetPrinter: state.settings.printPrinter,
+              })
+              .catch((err) => console.error("Failed to print from KDS", err));
+          }
+        }
       }
 
       state.tickets = activeTickets;

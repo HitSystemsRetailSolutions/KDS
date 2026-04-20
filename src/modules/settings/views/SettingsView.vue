@@ -209,6 +209,41 @@
           </div>
          </div>
 
+        <!-- Impresión Section -->
+        <div v-if="activeTab === 'impresion'" class="settings-group">
+          <div class="settings-card">
+            <h3 class="card-title">Impresión Física</h3>
+
+            <div class="setting-row">
+              <div class="setting-text">
+                <div class="setting-label">Imprimir en impresora</div>
+                <div class="setting-hint">Imprime los tickets del KDS también en una impresora física</div>
+              </div>
+              <label class="kds-switch">
+                <input type="checkbox" v-model="settings.printEnabled" @change="save('printEnabled', settings.printEnabled)">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-row" v-if="settings.printEnabled">
+              <div class="setting-text">
+                <div class="setting-label">Impresora destino</div>
+                <div class="setting-hint">Selecciona la impresora donde imprimir</div>
+              </div>
+              <div class="kds-select-wrap">
+                <select
+                  class="kds-select"
+                  :value="settings.printPrinter"
+                  @change="save('printPrinter', $event.target.value)"
+                >
+                  <option value="" disabled>Seleccionar...</option>
+                  <option v-for="p in availablePrinters" :key="p.full" :value="p.full">{{ p.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
@@ -217,6 +252,7 @@
 <script>
 import { computed, ref, onMounted } from 'vue';
 import KitchenService from '@/services/KitchenService';
+import axios from 'axios';
 import moment from 'moment';
 
 export default {
@@ -224,10 +260,12 @@ export default {
   setup() {
     const activeTab = ref('aspectos');
     const currentTime = ref(moment().format('HH:mm'));
+    const availablePrinters = ref([]);
     
     const tabs = [
       { id: 'aspectos', label: 'Aspectos' },
-      { id: 'sonido', label: 'Sonido' }
+      { id: 'sonido', label: 'Sonido' },
+      { id: 'impresion', label: 'Impresión' }
     ];
 
     const fontSizeOptions = [
@@ -308,6 +346,10 @@ export default {
       setInterval(() => {
         currentTime.value = moment().format('HH:mm');
       }, 1000);
+
+      axios.post('impresora/getImpresorasDisponibles')
+        .then((res) => { availablePrinters.value = res.data || []; })
+        .catch((err) => console.error('Failed to load printers', err));
     });
 
     return {
@@ -315,6 +357,7 @@ export default {
       tabs,
       settings,
       soundEnabled,
+      availablePrinters,
       save,
       previewSound,
       saveAndPreview,
@@ -827,5 +870,38 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 .sound-preview-btn:active {
   transform: scale(0.95);
+}
+
+/* ── Select Field ── */
+.kds-select-wrap {
+  position: relative;
+}
+
+.kds-select {
+  background: var(--kds-bg);
+  border: 1.5px solid var(--kds-card-border);
+  border-radius: 8px;
+  padding: 8px 32px 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kds-text);
+  min-width: 180px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.2s;
+}
+
+.kds-select:focus {
+  border-color: var(--kds-accent);
+}
+
+.kds-select option {
+  background: var(--kds-surface);
+  color: var(--kds-text);
 }
 </style>
