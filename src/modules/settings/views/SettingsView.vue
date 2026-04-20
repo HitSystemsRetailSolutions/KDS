@@ -7,18 +7,17 @@
           <span class="back-icon">←</span>
         </button>
         <div class="kds-logo ms-2">
-          <span class="kds-logo__text">CONFIGURACIÓN</span>
+          <span class="kds-logo__text">{{ $t("kds.settings", "CONFIGURACIÓN") }}</span>
         </div>
       </div>
 
       <div class="kds-toolbar__center">
-        <button 
-          v-for="tab in tabs" 
+        <button
+          v-for="tab in tabs"
           :key="tab.id"
           class="kds-tab"
           :class="{ active: activeTab === tab.id }"
-          @click="activeTab = tab.id"
-        >
+          @click="activeTab = tab.id">
           {{ tab.label }}
         </button>
       </div>
@@ -31,26 +30,26 @@
     <!-- Main Content -->
     <main class="settings-main">
       <div class="settings-scroll-area">
-        
         <!-- Aspectos Section -->
         <div v-if="activeTab === 'aspectos'" class="settings-group">
           <div class="settings-card no-padding">
             <div class="layout-section-header">
-              <span class="layout-section-title">Distribución de Pantalla</span>
-              <span class="layout-section-hint">Elige cómo se organizan los tickets</span>
+              <span class="layout-section-title">{{ $t("kds.screen_layout", "Distribución de Pantalla") }}</span>
+              <span class="layout-section-hint">{{
+                $t("kds.screen_layout_hint", "Elige cómo se organizan los tickets")
+              }}</span>
             </div>
-            
+
             <div class="layout-grid-cards">
-              <div 
-                v-for="lay in layoutOptions" 
+              <div
+                v-for="lay in layoutOptions"
                 :key="lay.id"
                 class="layout-card"
                 :class="{ active: settings.layout === lay.id }"
-                @click="save('layout', lay.id)"
-              >
+                @click="save('layout', lay.id)">
                 <div class="layout-card-preview">
                   <div :class="['mini-board-dark', lay.id]">
-                    <div v-for="n in (lay.id === 'list' ? 3 : 6)" :key="n" class="mini-tk">
+                    <div v-for="n in lay.id === 'list' ? 3 : 6" :key="n" class="mini-tk">
                       <div class="mini-tk-hdr"></div>
                       <div class="mini-tk-line" v-for="l in 2" :key="l"></div>
                     </div>
@@ -64,17 +63,16 @@
             </div>
 
             <div class="columns-picker-section">
-              <div class="columns-picker-label">Número de Columnas</div>
+              <div class="columns-picker-label">{{ $t("kds.num_columns", "Número de Columnas") }}</div>
               <div class="columns-picker-grid">
                 <button
                   v-for="col in columnOptions"
                   :key="col.id"
                   class="col-pick-btn"
                   :class="{ active: settings.columns === col.id }"
-                  @click="save('columns', col.id)"
-                >
+                  @click="save('columns', col.id)">
                   <span class="col-pick-icon">
-                    <span v-for="c in (col.id === 0 ? 4 : col.id)" :key="c" class="col-pick-bar"></span>
+                    <span v-for="c in col.id === 0 ? 4 : col.id" :key="c" class="col-pick-bar"></span>
                   </span>
                   <span class="col-pick-label">{{ col.label }}</span>
                 </button>
@@ -83,21 +81,22 @@
           </div>
 
           <div class="settings-card mt-3">
-            <h3 class="card-title">Aspecto y Tiempos</h3>
-            
+            <h3 class="card-title">{{ $t("kds.appearance_timers", "Aspecto y Tiempos") }}</h3>
+
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Escala de Texto</div>
-                <div class="setting-hint">Ajusta el tamaño global de la interfaz</div>
+                <div class="setting-label">{{ $t("kds.text_scale", "Escala de Texto") }}</div>
+                <div class="setting-hint">
+                  {{ $t("kds.text_scale_hint", "Ajusta el tamaño global de la interfaz") }}
+                </div>
               </div>
               <div class="segmented-control">
-                <button 
-                  v-for="size in fontSizeOptions" 
+                <button
+                  v-for="size in fontSizeOptions"
                   :key="size.id"
                   class="segment-btn"
                   :class="{ active: settings.fontSize === size.id }"
-                  @click="save('fontSize', size.id)"
-                >
+                  @click="save('fontSize', size.id)">
                   {{ size.label }}
                 </button>
               </div>
@@ -105,44 +104,62 @@
 
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Aviso (Naranja)</div>
-                <div class="setting-hint">Minutos antes de cambiar a aviso</div>
+                <div class="setting-label">{{ $t("kds.warning_orange", "Aviso (Naranja)") }}</div>
+                <div class="setting-hint">{{ $t("kds.warning_orange_hint", "Minutos antes de cambiar a aviso") }}</div>
               </div>
               <div class="d-flex align-items-center gap-2">
-                <input type="range" class="form-range" min="1" max="15" v-model.number="settings.timerWarning" @change="save('timerWarning', settings.timerWarning)">
+                <input
+                  type="range"
+                  class="form-range"
+                  min="1"
+                  max="15"
+                  v-model.number="settings.timerWarning"
+                  @change="save('timerWarning', settings.timerWarning)" />
                 <span class="badge bg-warning">{{ settings.timerWarning }}m</span>
               </div>
             </div>
 
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Urgente (Rojo)</div>
-                <div class="setting-hint">Minutos antes de marcar como urgente</div>
+                <div class="setting-label">{{ $t("kds.urgent_red", "Urgente (Rojo)") }}</div>
+                <div class="setting-hint">{{ $t("kds.urgent_red_hint", "Minutos antes de marcar como urgente") }}</div>
               </div>
               <div class="d-flex align-items-center gap-2">
-                <input type="range" class="form-range" min="5" max="30" v-model.number="settings.timerUrgent" @change="save('timerUrgent', settings.timerUrgent)">
+                <input
+                  type="range"
+                  class="form-range"
+                  min="5"
+                  max="30"
+                  v-model.number="settings.timerUrgent"
+                  @change="save('timerUrgent', settings.timerUrgent)" />
                 <span class="badge bg-danger">{{ settings.timerUrgent }}m</span>
               </div>
             </div>
 
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Cronómetro de Tiempo</div>
-                <div class="setting-hint">Mostrar tiempo transcurrido en cabecera</div>
+                <div class="setting-label">{{ $t("kds.timer", "Cronómetro de Tiempo") }}</div>
+                <div class="setting-hint">{{ $t("kds.timer_hint", "Mostrar tiempo transcurrido en cabecera") }}</div>
               </div>
               <label class="kds-switch">
-                <input type="checkbox" v-model="settings.showTimers" @change="save('showTimers', settings.showTimers)">
+                <input
+                  type="checkbox"
+                  v-model="settings.showTimers"
+                  @change="save('showTimers', settings.showTimers)" />
                 <span class="slider"></span>
               </label>
             </div>
 
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Contador de Comensales</div>
-                <div class="setting-hint">Ver número de personas por mesa</div>
+                <div class="setting-label">{{ $t("kds.diners_counter", "Contador de Comensales") }}</div>
+                <div class="setting-hint">{{ $t("kds.diners_counter_hint", "Ver número de personas por mesa") }}</div>
               </div>
               <label class="kds-switch">
-                <input type="checkbox" v-model="settings.showDiners" @change="save('showDiners', settings.showDiners)">
+                <input
+                  type="checkbox"
+                  v-model="settings.showDiners"
+                  @change="save('showDiners', settings.showDiners)" />
                 <span class="slider"></span>
               </label>
             </div>
@@ -153,8 +170,10 @@
         <div v-if="activeTab === 'sonido'" class="settings-group">
           <div class="settings-card no-padding">
             <div class="layout-section-header">
-              <span class="layout-section-title">Tipo de Alerta Sonora</span>
-              <span class="layout-section-hint">Pulsa ▶ para escuchar antes de seleccionar</span>
+              <span class="layout-section-title">{{ $t("kds.sound_alert_type", "Tipo de Alerta Sonora") }}</span>
+              <span class="layout-section-hint">{{
+                $t("kds.sound_alert_hint", "Pulsa ▶ para escuchar antes de seleccionar")
+              }}</span>
             </div>
 
             <div class="sound-options-list">
@@ -163,8 +182,7 @@
                 :key="snd.id"
                 class="sound-option-row"
                 :class="{ active: settings.soundType === snd.id }"
-                @click="saveAndPreview('soundType', snd.id)"
-              >
+                @click="saveAndPreview('soundType', snd.id)">
                 <div class="sound-option-icon">{{ snd.icon }}</div>
                 <div class="sound-option-info">
                   <div class="sound-option-name">{{ snd.label }}</div>
@@ -172,154 +190,164 @@
                 </div>
                 <div class="sound-option-right">
                   <div class="sound-option-active-dot" v-if="settings.soundType === snd.id"></div>
-                  <button
-                    class="sound-preview-btn"
-                    @click.stop="previewSound(snd.id)"
-                    title="Escuchar"
-                  >▶</button>
+                  <button class="sound-preview-btn" @click.stop="previewSound(snd.id)" title="Escuchar">▶</button>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="settings-card mt-3">
-            <h3 class="card-title">Opciones</h3>
+            <h3 class="card-title">{{ $t("kds.options", "Opciones") }}</h3>
 
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Repetir en Urgentes</div>
-                <div class="setting-hint">Recordatorio sonoro para pedidos con retraso</div>
+                <div class="setting-label">{{ $t("kds.repeat_urgent", "Repetir en Urgentes") }}</div>
+                <div class="setting-hint">
+                  {{ $t("kds.repeat_urgent_hint", "Recordatorio sonoro para pedidos con retraso") }}
+                </div>
               </div>
               <label class="kds-switch">
-                <input type="checkbox" v-model="settings.repeatUrgent" @change="save('repeatUrgent', settings.repeatUrgent)">
+                <input
+                  type="checkbox"
+                  v-model="settings.repeatUrgent"
+                  @change="save('repeatUrgent', settings.repeatUrgent)" />
                 <span class="slider"></span>
               </label>
             </div>
 
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Sonidos activados</div>
-                <div class="setting-hint">Activar o desactivar todos los sonidos</div>
+                <div class="setting-label">{{ $t("kds.sounds_enabled", "Sonidos activados") }}</div>
+                <div class="setting-hint">
+                  {{ $t("kds.sounds_enabled_hint", "Activar o desactivar todos los sonidos") }}
+                </div>
               </div>
               <label class="kds-switch">
-                <input type="checkbox" v-model="soundEnabled" @change="toggleSound">
+                <input type="checkbox" v-model="soundEnabled" @change="toggleSound" />
                 <span class="slider"></span>
               </label>
             </div>
           </div>
-         </div>
+        </div>
 
         <!-- Impresión Section -->
         <div v-if="activeTab === 'impresion'" class="settings-group">
           <div class="settings-card">
-            <h3 class="card-title">Impresión Física</h3>
+            <h3 class="card-title">{{ $t("kds.physical_print", "Impresión Física") }}</h3>
 
             <div class="setting-row">
               <div class="setting-text">
-                <div class="setting-label">Imprimir en impresora</div>
-                <div class="setting-hint">Imprime los tickets del KDS también en una impresora física</div>
+                <div class="setting-label">{{ $t("kds.print_to_printer", "Imprimir en impresora") }}</div>
+                <div class="setting-hint">
+                  {{ $t("kds.print_to_printer_hint", "Imprime los tickets del KDS también en una impresora física") }}
+                </div>
               </div>
               <label class="kds-switch">
-                <input type="checkbox" v-model="settings.printEnabled" @change="save('printEnabled', settings.printEnabled)">
+                <input
+                  type="checkbox"
+                  v-model="settings.printEnabled"
+                  @change="save('printEnabled', settings.printEnabled)" />
                 <span class="slider"></span>
               </label>
             </div>
 
             <div class="setting-row" v-if="settings.printEnabled">
               <div class="setting-text">
-                <div class="setting-label">Impresora destino</div>
-                <div class="setting-hint">Selecciona la impresora donde imprimir</div>
+                <div class="setting-label">{{ $t("kds.target_printer", "Impresora destino") }}</div>
+                <div class="setting-hint">
+                  {{ $t("kds.target_printer_hint", "Selecciona la impresora donde imprimir") }}
+                </div>
               </div>
               <div class="kds-select-wrap">
                 <select
                   class="kds-select"
                   :value="settings.printPrinter"
-                  @change="save('printPrinter', $event.target.value)"
-                >
-                  <option value="" disabled>Seleccionar...</option>
+                  @change="save('printPrinter', $event.target.value)">
+                  <option value="" disabled>{{ $t("kds.select", "Seleccionar...") }}</option>
                   <option v-for="p in availablePrinters" :key="p.full" :value="p.full">{{ p.name }}</option>
                 </select>
               </div>
             </div>
           </div>
         </div>
-
       </div>
     </main>
   </div>
 </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue';
-import KitchenService from '@/services/KitchenService';
-import axios from 'axios';
-import moment from 'moment';
+import { computed, ref, onMounted } from "vue";
+import KitchenService from "@/services/KitchenService";
+import { useI18n } from "vue-i18n";
+import axios from "axios";
+import moment from "moment";
 
 export default {
-  name: 'SettingsView',
+  name: "SettingsView",
   setup() {
-    const activeTab = ref('aspectos');
-    const currentTime = ref(moment().format('HH:mm'));
+    const { t } = useI18n();
+    const activeTab = ref("aspectos");
+    const currentTime = ref(moment().format("HH:mm"));
     const availablePrinters = ref([]);
-    
-    const tabs = [
-      { id: 'aspectos', label: 'Aspectos' },
-      { id: 'sonido', label: 'Sonido' },
-      { id: 'impresion', label: 'Impresión' }
-    ];
 
-    const fontSizeOptions = [
-      { id: 'small', label: 'PEQUEÑO' },
-      { id: 'medium', label: 'NORMAL' },
-      { id: 'large', label: 'GRANDE' }
-    ];
+    const tabs = computed(() => [
+      { id: "aspectos", label: t("kds.tab_appearance", "Aspectos") },
+      { id: "sonido", label: t("kds.tab_sound", "Sonido") },
+      { id: "impresion", label: t("kds.tab_print", "Impresión") },
+    ]);
+
+    const fontSizeOptions = computed(() => [
+      { id: "small", label: t("kds.size_small", "PEQUEÑO") },
+      { id: "medium", label: t("kds.size_normal", "NORMAL") },
+      { id: "large", label: t("kds.size_large", "GRANDE") },
+    ]);
 
     const columnOptions = [
-      { id: 0, label: 'AUTO' },
-      { id: 2, label: '2' },
-      { id: 3, label: '3' },
-      { id: 4, label: '4' },
-      { id: 5, label: '5' }
+      { id: 0, label: "AUTO" },
+      { id: 2, label: "2" },
+      { id: 3, label: "3" },
+      { id: 4, label: "4" },
+      { id: 5, label: "5" },
     ];
 
-    const soundOptions = [
+    const soundOptions = computed(() => [
       {
-        id: 'classic',
-        label: 'Clásico',
-        icon: '🔔',
-        desc: 'Dos tonos suaves ascendentes, fácil de escuchar'
+        id: "classic",
+        label: t("kds.sound_classic", "Clásico"),
+        icon: "🔔",
+        desc: t("kds.sound_classic_desc", "Dos tonos suaves ascendentes, fácil de escuchar"),
       },
       {
-        id: 'minimal',
-        label: 'Mínimo',
-        icon: '🔕',
-        desc: 'Un pitido corto y discreto, ideal para ambientes tranquilos'
+        id: "minimal",
+        label: t("kds.sound_minimal", "Mínimo"),
+        icon: "🔕",
+        desc: t("kds.sound_minimal_desc", "Un pitido corto y discreto, ideal para ambientes tranquilos"),
       },
       {
-        id: 'digital',
-        label: 'Digital',
-        icon: '⚡',
-        desc: 'Dos beeps electrónicos rápidos, estilo retro'
+        id: "digital",
+        label: t("kds.sound_digital", "Digital"),
+        icon: "⚡",
+        desc: t("kds.sound_digital_desc", "Dos beeps electrónicos rápidos, estilo retro"),
       },
       {
-        id: 'chime',
-        label: 'Carillón',
-        icon: '🎵',
-        desc: 'Tres notas ascendentes meló dicas, sonido agradable'
+        id: "chime",
+        label: t("kds.sound_chime", "Carillón"),
+        icon: "🎵",
+        desc: t("kds.sound_chime_desc", "Tres notas ascendentes meló dicas, sonido agradable"),
       },
       {
-        id: 'alert',
-        label: 'Alerta',
-        icon: '🚨',
-        desc: 'Doble beep urgente, máxima atención'
-      }
-    ];
+        id: "alert",
+        label: t("kds.sound_alert", "Alerta"),
+        icon: "🚨",
+        desc: t("kds.sound_alert_desc", "Doble beep urgente, máxima atención"),
+      },
+    ]);
 
-    const layoutOptions = [
-      { id: 'grid', label: 'Mosaico' },
-      { id: 'columns', label: 'Columnas' },
-      { id: 'list', label: 'Lista' }
-    ];
+    const layoutOptions = computed(() => [
+      { id: "grid", label: t("kds.layout_grid", "Mosaico") },
+      { id: "columns", label: t("kds.layout_columns", "Columnas") },
+      { id: "list", label: t("kds.layout_list", "Lista") },
+    ]);
 
     const settings = computed(() => KitchenService.state.settings);
     const soundEnabled = computed(() => KitchenService.state.soundEnabled);
@@ -344,12 +372,15 @@ export default {
 
     onMounted(() => {
       setInterval(() => {
-        currentTime.value = moment().format('HH:mm');
+        currentTime.value = moment().format("HH:mm");
       }, 1000);
 
-      axios.post('impresora/getImpresorasDisponibles')
-        .then((res) => { availablePrinters.value = res.data || []; })
-        .catch((err) => console.error('Failed to load printers', err));
+      axios
+        .post("impresora/getImpresorasDisponibles")
+        .then((res) => {
+          availablePrinters.value = res.data || [];
+        })
+        .catch((err) => console.error("Failed to load printers", err));
     });
 
     return {
@@ -366,9 +397,9 @@ export default {
       fontSizeOptions,
       columnOptions,
       soundOptions,
-      layoutOptions
+      layoutOptions,
     };
-  }
+  },
 };
 </script>
 
@@ -380,7 +411,7 @@ export default {
   flex-direction: column;
   background: var(--kds-bg); /* Use global grey bg */
   overflow: hidden;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 /* ── Inherited Toolbar Style ── */
@@ -395,14 +426,17 @@ export default {
   flex-shrink: 0;
 }
 
-.kds-toolbar__left, .kds-toolbar__right {
+.kds-toolbar__left,
+.kds-toolbar__right {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 200px;
 }
 
-.kds-toolbar__right { justify-content: flex-end; }
+.kds-toolbar__right {
+  justify-content: flex-end;
+}
 
 .kds-logo__text {
   font-weight: 800;
@@ -425,7 +459,10 @@ export default {
   cursor: pointer;
 }
 
-.back-icon { font-size: 1.1rem; color: var(--kds-text); }
+.back-icon {
+  font-size: 1.1rem;
+  color: var(--kds-text);
+}
 
 /* ── Tabs Style ── */
 .kds-toolbar__center {
@@ -449,7 +486,9 @@ export default {
   border: none;
 }
 
-.kds-tab:hover { color: var(--kds-text); }
+.kds-tab:hover {
+  color: var(--kds-text);
+}
 .kds-tab.active {
   color: var(--kds-accent);
   border-bottom-color: var(--kds-accent);
@@ -472,8 +511,14 @@ export default {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Cards ── */
@@ -493,7 +538,10 @@ export default {
   letter-spacing: 1px;
   margin-bottom: 16px;
 }
-.settings-card.no-padding { padding: 0; overflow: hidden; }
+.settings-card.no-padding {
+  padding: 0;
+  overflow: hidden;
+}
 
 /* ── Layout Section Header ── */
 .layout-section-header {
@@ -535,12 +583,12 @@ export default {
 .layout-card:hover {
   border-color: var(--kds-accent);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(99,102,241,0.15);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.15);
 }
 
 .layout-card.active {
   border-color: var(--kds-accent);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .layout-card-preview {
@@ -584,7 +632,9 @@ export default {
   overflow: hidden;
 }
 
-.layout-card.active .mini-tk { border-color: rgba(99,102,241,0.4); }
+.layout-card.active .mini-tk {
+  border-color: rgba(99, 102, 241, 0.4);
+}
 
 .mini-tk-hdr {
   height: 6px;
@@ -592,7 +642,9 @@ export default {
   border-radius: 1px;
   flex-shrink: 0;
 }
-.layout-card.active .mini-tk-hdr { background: var(--kds-accent); }
+.layout-card.active .mini-tk-hdr {
+  background: var(--kds-accent);
+}
 
 .mini-tk-line {
   height: 2px;
@@ -666,7 +718,7 @@ export default {
 
 .col-pick-btn.active {
   border-color: var(--kds-accent);
-  background: rgba(99,102,241,0.08);
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .col-pick-icon {
@@ -745,7 +797,7 @@ export default {
 .segment-btn.active {
   background: var(--kds-surface);
   color: var(--kds-accent);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* ── Custom Switch ── */
@@ -756,14 +808,21 @@ export default {
   height: 26px;
 }
 
-.kds-switch input { opacity: 0; width: 0; height: 0; }
+.kds-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
 
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: var(--kds-badge-bg);
-  transition: .3s;
+  transition: 0.3s;
   border-radius: 26px;
 }
 
@@ -775,13 +834,17 @@ export default {
   left: 3px;
   bottom: 3px;
   background-color: white;
-  transition: .3s;
+  transition: 0.3s;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-input:checked + .slider { background-color: var(--kds-accent); }
-input:checked + .slider:before { transform: translateX(22px); }
+input:checked + .slider {
+  background-color: var(--kds-accent);
+}
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
 
 /* ── Sound Options ── */
 .sound-options-list {
@@ -799,12 +862,16 @@ input:checked + .slider:before { transform: translateX(22px); }
   transition: background 0.2s;
 }
 
-.sound-option-row:last-child { border-bottom: none; }
+.sound-option-row:last-child {
+  border-bottom: none;
+}
 
-.sound-option-row:hover { background: var(--kds-surface-hover); }
+.sound-option-row:hover {
+  background: var(--kds-surface-hover);
+}
 
 .sound-option-row.active {
-  background: rgba(99,102,241,0.04);
+  background: rgba(99, 102, 241, 0.04);
   box-shadow: inset 4px 0 0 0 var(--kds-accent);
 }
 
@@ -852,7 +919,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   height: 34px;
   border-radius: 50%;
   border: 1.5px solid var(--kds-accent);
-  background: rgba(99,102,241,0.08);
+  background: rgba(99, 102, 241, 0.08);
   color: var(--kds-accent);
   font-size: 0.75rem;
   cursor: pointer;

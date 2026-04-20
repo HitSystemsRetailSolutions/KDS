@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="kds-ticket"
-    :class="[ticketStatusClass, fontSizeClass, `layout-mode--${layout}`]"
-  >
+  <div class="kds-ticket" :class="[ticketStatusClass, fontSizeClass, `layout-mode--${layout}`]">
     <!-- Header Strip -->
     <div class="kds-ticket__header" :class="headerColorClass">
       <div class="kds-ticket__table">
@@ -10,8 +7,7 @@
         <span v-if="settings.showDiners" class="kds-ticket__diners">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path
-              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
-            />
+              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
           </svg>
           {{ ticket.diners }}
         </span>
@@ -25,10 +21,7 @@
     <div class="kds-ticket__body">
       <div v-for="course in activeCourses" :key="course.id" class="kds-course">
         <!-- Course header (shown when there are multiple courses or it's a menu) -->
-        <div
-          v-if="ticket.courses.length > 1 || course.id !== 'general'"
-          class="kds-course__header"
-        >
+        <div v-if="ticket.courses.length > 1 || course.id !== 'general'" class="kds-course__header">
           {{ course.name }}
         </div>
 
@@ -40,24 +33,14 @@
             'kds-item--preparing': isPreparing(item.id),
             'kds-item--ready': isReady(item.id),
             'kds-item--served': isServed(item.id),
-          }"
-        >
+          }">
           <div class="kds-item__left">
             <span class="kds-item__qty">{{ remainingQty(item) }}</span>
             <div class="kds-item__info">
               <span class="kds-item__name">{{ item.name }}</span>
-              <span v-if="item.notes" class="kds-item__notes">{{
-                item.notes
-              }}</span>
-              <div
-                v-if="item.supplements?.length"
-                class="kds-item__supplements"
-              >
-                <span
-                  v-for="(sup, idx) in item.supplements"
-                  :key="idx"
-                  class="kds-item__supplement"
-                >
+              <span v-if="item.notes" class="kds-item__notes">{{ item.notes }}</span>
+              <div v-if="item.supplements?.length" class="kds-item__supplements">
+                <span v-for="(sup, idx) in item.supplements" :key="idx" class="kds-item__supplement">
                   + {{ sup }}
                 </span>
               </div>
@@ -65,32 +48,27 @@
           </div>
           <div class="kds-item__actions">
             <button
-              v-if="
-                !isPreparing(item.id) && !isReady(item.id) && !isServed(item.id)
-              "
+              v-if="!isPreparing(item.id) && !isReady(item.id) && !isServed(item.id)"
               class="kds-item-action kds-action-prep"
-              title="Empezar a preparar"
-              @click.stop="toggleItem(item.id, item.quantity, 'PREPARING')"
-            >
-              🍳 Prep
+              :title="$t('kds.start_preparing', 'Empezar a preparar')"
+              @click.stop="toggleItem(item.id, item.quantity, 'PREPARING')">
+              🍳 {{ $t("kds.prep", "Prep") }}
             </button>
 
             <button
               v-if="isPreparing(item.id)"
               class="kds-item-action kds-action-ready"
-              title="Marcar como listo"
-              @click.stop="toggleItem(item.id, item.quantity, 'READY')"
-            >
-              ✅ Listo
+              :title="$t('kds.mark_ready', 'Marcar como listo')"
+              @click.stop="toggleItem(item.id, item.quantity, 'READY')">
+              ✅ {{ $t("kds.ready", "Listo") }}
             </button>
 
             <button
               v-if="isReady(item.id) || isServed(item.id)"
               class="kds-item-action kds-action-undo"
-              title="Deshacer (volver a pendiente)"
-              @click.stop="toggleItem(item.id, item.quantity, 'PENDING')"
-            >
-              ↩️ Deshacer
+              :title="$t('kds.undo_to_pending', 'Deshacer (volver a pendiente)')"
+              @click.stop="toggleItem(item.id, item.quantity, 'PENDING')">
+              ↩️ {{ $t("kds.undo", "Deshacer") }}
             </button>
           </div>
         </div>
@@ -98,7 +76,7 @@
 
       <!-- Empty / all served -->
       <div v-if="allItemsCount === 0" class="kds-ticket__done">
-        <span>✅ Todo listo</span>
+        <span>✅ {{ $t("kds.all_ready", "Todo listo") }}</span>
       </div>
     </div>
 
@@ -107,20 +85,15 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
       </svg>
-      FIN
+      {{ $t("kds.finish", "FIN") }}
     </button>
 
-    <button
-      v-else-if="isCompleted"
-      class="kds-ticket__bump kds-ticket__bump--restore"
-      @click="restoreTicket"
-    >
+    <button v-else-if="isCompleted" class="kds-ticket__bump kds-ticket__bump--restore" @click="restoreTicket">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path
-          d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"
-        />
+          d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
       </svg>
-      DESHACER
+      {{ $t("kds.undo_upper", "DESHACER") }}
     </button>
   </div>
 </template>
@@ -128,6 +101,7 @@
 <script>
 import { computed } from "vue";
 import KitchenService from "@/services/KitchenService";
+import { useI18n } from "vue-i18n";
 import moment from "moment";
 
 export default {
@@ -144,6 +118,7 @@ export default {
   },
   emits: ["bump"],
   setup(props, { emit }) {
+    const { t } = useI18n();
     // Live timer — updates every second
     const liveTimer = computed(() => {
       const _ = KitchenService.state.lastUpdated;
@@ -155,14 +130,9 @@ export default {
       const secs = totalSecs % 60;
 
       if (hours > 0) {
-        return `${hours}:${String(mins).padStart(2, "0")}:${String(
-          secs,
-        ).padStart(2, "0")}`;
+        return `${hours}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
       }
-      return `${String(mins).padStart(2, "0")}:${String(secs).padStart(
-        2,
-        "0",
-      )}`;
+      return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
     });
 
     const elapsedMinutes = computed(() => {
@@ -176,7 +146,7 @@ export default {
 
     // Table display name
     const tableDisplayName = computed(() => {
-      return props.ticket.tableName || "Mesa";
+      return props.ticket.tableName || t("kds.table", "Mesa");
     });
 
     // Dynamic header color based on time and settings
@@ -190,8 +160,7 @@ export default {
     });
 
     const ticketStatusClass = computed(() => {
-      if (elapsedMinutes.value >= (settings.value.timerUrgent || 15))
-        return "kds-ticket--urgent";
+      if (elapsedMinutes.value >= (settings.value.timerUrgent || 15)) return "kds-ticket--urgent";
       return "";
     });
 
@@ -220,12 +189,7 @@ export default {
     };
 
     const toggleItem = (itemId, quantity, forceStatus) => {
-      KitchenService.toggleItemStatus(
-        props.ticket.id,
-        itemId,
-        quantity,
-        forceStatus,
-      );
+      KitchenService.toggleItemStatus(props.ticket.id, itemId, quantity, forceStatus);
     };
 
     // Active courses with filtered items
@@ -241,9 +205,7 @@ export default {
       const _ = KitchenService.state.stateVersion;
       return props.ticket.courses
         .map((course) => {
-          const visible = course.items.filter(
-            (item) => !KitchenService.isArticleHidden(item.idArticulo),
-          );
+          const visible = course.items.filter((item) => !KitchenService.isArticleHidden(item.idArticulo));
           const filtered = KitchenService.state.showHistory
             ? visible
             : visible.filter((item) => {
@@ -258,9 +220,7 @@ export default {
 
     const isCompleted = computed(() => {
       // A ticket is considered completed if all items are SERVED
-      return props.ticket.courses.every((c) =>
-        c.items.every((item) => isServed(item.id)),
-      );
+      return props.ticket.courses.every((c) => c.items.every((item) => isServed(item.id)));
     });
 
     const restoreTicket = () => {
@@ -357,8 +317,7 @@ export default {
   display: flex;
   flex-direction: column;
   box-shadow: var(--kds-shadow-sm);
-  transition: box-shadow var(--kds-transition),
-    border-color var(--kds-transition);
+  transition: box-shadow var(--kds-transition), border-color var(--kds-transition);
 }
 
 .kds-ticket:hover {

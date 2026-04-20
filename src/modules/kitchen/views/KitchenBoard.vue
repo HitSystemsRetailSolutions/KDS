@@ -12,17 +12,17 @@
       <div class="kds-toolbar__center">
         <div class="kds-stat">
           <span class="kds-stat__value">{{ activeCount }}</span>
-          <span class="kds-stat__label">Activos</span>
+          <span class="kds-stat__label">{{ $t("kds.active", "Activos") }}</span>
         </div>
         <div class="kds-stat__divider"></div>
         <div class="kds-stat">
           <span class="kds-stat__value">{{ avgPrepTime }}</span>
-          <span class="kds-stat__label">Tiempo Medio</span>
+          <span class="kds-stat__label">{{ $t("kds.avg_time", "Tiempo Medio") }}</span>
         </div>
         <div class="kds-stat__divider"></div>
         <div class="kds-stat">
           <span class="kds-stat__value">{{ completedToday }}</span>
-          <span class="kds-stat__label">Completados</span>
+          <span class="kds-stat__label">{{ $t("kds.completed", "Completados") }}</span>
         </div>
       </div>
 
@@ -31,35 +31,23 @@
           class="kds-btn kds-btn--icon"
           :class="{ 'kds-btn--active': soundEnabled }"
           @click="toggleSound"
-          :title="soundEnabled ? 'Sonido activado' : 'Sonido desactivado'"
-        >
+          :title="soundEnabled ? $t('kds.sound_on', 'Sonido activado') : $t('kds.sound_off', 'Sonido desactivado')">
           <span v-if="soundEnabled">🔊</span>
           <span v-else>🔇</span>
         </button>
 
-        <button
-          class="kds-btn kds-btn--icon"
-          @click="$router.push('/settings')"
-          title="Configuración"
-        >
+        <button class="kds-btn kds-btn--icon" @click="$router.push('/settings')" title="Configuración">
           <span>⚙️</span>
         </button>
 
-        <button
-          class="kds-btn"
-          :class="{ 'kds-btn--active': showHistory }"
-          @click="toggleHistory"
-        >
+        <button class="kds-btn" :class="{ 'kds-btn--active': showHistory }" @click="toggleHistory">
           <span class="kds-btn__icon">📋</span>
-          {{ showHistory ? "Ocultar Acabadas" : "Ver Acabadas" }}
+          {{ showHistory ? $t("kds.hide_finished", "Ocultar Acabadas") : $t("kds.show_finished", "Ver Acabadas") }}
         </button>
 
-        <div
-          class="kds-connection"
-          :class="isConnected ? 'kds-connection--on' : 'kds-connection--off'"
-        >
+        <div class="kds-connection" :class="isConnected ? 'kds-connection--on' : 'kds-connection--off'">
           <span class="kds-connection__dot"></span>
-          {{ isConnected ? "Conectado" : "Sin conexión" }}
+          {{ isConnected ? $t("kds.connected", "Conectado") : $t("kds.disconnected", "Sin conexión") }}
         </div>
 
         <div class="kds-clock">{{ currentTime }}</div>
@@ -67,31 +55,26 @@
     </header>
 
     <!-- Ticket Grid -->
-    <main
-      class="kds-grid"
-      :class="[`layout-${settings.layout}`]"
-      :style="gridStyle"
-    >
+    <main class="kds-grid" :class="[`layout-${settings.layout}`]" :style="gridStyle">
       <TicketCard
         v-for="ticket in tickets"
         :key="ticket.id"
         :ticket="ticket"
         :layout="settings.layout"
-        @bump="handleBump"
-      />
+        @bump="handleBump" />
 
       <!-- Empty State -->
       <div v-if="tickets.length === 0 && isConnected" class="kds-empty">
         <div class="kds-empty__icon">✨</div>
-        <div class="kds-empty__title">¡Todo al día!</div>
-        <div class="kds-empty__sub">No hay pedidos pendientes</div>
+        <div class="kds-empty__title">{{ $t("kds.all_done", "¡Todo al día!") }}</div>
+        <div class="kds-empty__sub">{{ $t("kds.no_pending", "No hay pedidos pendientes") }}</div>
       </div>
 
       <!-- Disconnected State -->
       <div v-if="!isConnected" class="kds-empty kds-empty--error">
         <div class="kds-empty__icon">📡</div>
-        <div class="kds-empty__title">Conectando...</div>
-        <div class="kds-empty__sub">Esperando conexión con el servidor</div>
+        <div class="kds-empty__title">{{ $t("kds.connecting", "Conectando...") }}</div>
+        <div class="kds-empty__sub">{{ $t("kds.waiting_server", "Esperando conexión con el servidor") }}</div>
       </div>
     </main>
   </div>
@@ -154,14 +137,9 @@ export default {
         const secs = totalSecs % 60;
 
         if (hours > 0) {
-          return `${hours}:${String(mins).padStart(2, "0")}:${String(
-            secs,
-          ).padStart(2, "0")}`;
+          return `${hours}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
         }
-        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(
-          2,
-          "0",
-        )}`;
+        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
       }),
       completedToday: computed(() => KitchenService.state.completedToday || 0),
       isConnected: computed(() => KitchenService.state.isConnected),
@@ -172,8 +150,7 @@ export default {
         const { columns, layout } = KitchenService.state.settings;
 
         if (layout === "grid") {
-          if (columns > 0)
-            return { "grid-template-columns": `repeat(${columns}, 1fr)` };
+          if (columns > 0) return { "grid-template-columns": `repeat(${columns}, 1fr)` };
           return {
             "grid-template-columns": "repeat(auto-fill, minmax(280px, 1fr))",
           };

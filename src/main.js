@@ -4,12 +4,12 @@ import App from "./App.vue";
 import router from "./router";
 import store from "./store";
 import axios from "axios";
-import { createI18n } from "vue-i18n";
+import { i18n, setupI18n } from "./i18n";
 require("./services/sockets");
 axios.defaults.baseURL = "http://" + window.location.hostname + ":3000";
-const i18n = createI18n({
-  legacy: false,
-  locale: "es",
-  messages: "null",
-});
-createApp(App).use(store).use(router).use(i18n).mount("#app");
+
+async function initApp() {
+  await setupI18n();
+  createApp(App).use(store).use(router).use(i18n).mount("#app");
+}
+initApp();
