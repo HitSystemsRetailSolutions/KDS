@@ -30,6 +30,46 @@
     <!-- Main Content -->
     <main class="settings-main">
       <div class="settings-scroll-area">
+        <!-- Pantalla KDS Section -->
+        <div v-if="activeTab === 'pantalla'" class="settings-group">
+          <div class="settings-card">
+            <h3 class="card-title">{{ $t("kds.screen_selection", "Selección de Pantalla KDS") }}</h3>
+            <div class="setting-row">
+              <div class="setting-text">
+                <div class="setting-label">{{ $t("kds.kds_screen", "Pantalla KDS") }}</div>
+                <div class="setting-hint">
+                  {{ $t("kds.kds_screen_hint", "Elige qué artículos se muestran en esta pantalla.") }}
+                </div>
+              </div>
+            </div>
+
+            <div class="kds-screen-grid">
+              <div
+                class="kds-screen-card"
+                :class="{ active: !settings.kdsScreenName }"
+                @click="save('kdsScreenName', '')">
+                <div class="kds-screen-icon">📺</div>
+                <div class="kds-screen-name">{{ $t("kds.all_screens", "TODAS") }}</div>
+                <div class="kds-screen-desc">{{ $t("kds.all_screens_desc", "Muestra todos los artículos KDS") }}</div>
+                <div class="kds-screen-active-dot" v-if="!settings.kdsScreenName"></div>
+              </div>
+              <div
+                v-for="screen in availableKdsScreens"
+                :key="screen"
+                class="kds-screen-card"
+                :class="{ active: settings.kdsScreenName === screen }"
+                @click="save('kdsScreenName', screen)">
+                <div class="kds-screen-icon">🖥️</div>
+                <div class="kds-screen-name">{{ screen.toUpperCase() }}</div>
+                <div class="kds-screen-desc">
+                  {{ $t("kds.screen_filter_prefix", "Artículos con impresora") }} kds{{ screen }}
+                </div>
+                <div class="kds-screen-active-dot" v-if="settings.kdsScreenName === screen"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Aspectos Section -->
         <div v-if="activeTab === 'aspectos'" class="settings-group">
           <div class="settings-card no-padding">
@@ -289,8 +329,10 @@ export default {
     const activeTab = ref("aspectos");
     const currentTime = ref(moment().format("HH:mm"));
     const availablePrinters = ref([]);
+    const availableKdsScreens = ref([]);
 
     const tabs = computed(() => [
+      { id: "pantalla", label: t("kds.tab_screen", "Pantalla KDS") },
       { id: "aspectos", label: t("kds.tab_appearance", "Aspectos") },
       { id: "sonido", label: t("kds.tab_sound", "Sonido") },
       { id: "impresion", label: t("kds.tab_print", "Impresión") },
@@ -370,7 +412,7 @@ export default {
       KitchenService.toggleSound();
     };
 
-    onMounted(() => {
+    onMounted(async () => {
       setInterval(() => {
         currentTime.value = moment().format("HH:mm");
       }, 1000);
@@ -381,6 +423,8 @@ export default {
           availablePrinters.value = res.data || [];
         })
         .catch((err) => console.error("Failed to load printers", err));
+
+      availableKdsScreens.value = await KitchenService.fetchAvailableKdsScreens();
     });
 
     return {
@@ -389,6 +433,7 @@ export default {
       settings,
       soundEnabled,
       availablePrinters,
+      availableKdsScreens,
       save,
       previewSound,
       saveAndPreview,
@@ -970,5 +1015,83 @@ input:checked + .slider:before {
 .kds-select option {
   background: var(--kds-surface);
   color: var(--kds-text);
+}
+
+/* ── KDS Screen Selector ── */
+.kds-screen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.kds-screen-card {
+  position: relative;
+  border-radius: 10px;
+  border: 2px solid var(--kds-card-border);
+  background: var(--kds-bg);
+  cursor: pointer;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  text-align: center;
+}
+
+.kds-screen-card:hover {
+  border-color: var(--kds-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.15);
+}
+
+.kds-screen-card.active {
+  border-color: var(--kds-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.kds-screen-icon {
+  font-size: 2rem;
+}
+
+.kds-screen-name {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--kds-text);
+  letter-spacing: 1px;
+}
+
+.kds-screen-desc {
+  font-size: 0.68rem;
+  color: var(--kds-text-muted);
+  line-height: 1.3;
+}
+
+.kds-screen-active-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kds-accent);
+  box-shadow: 0 0 6px var(--kds-accent);
+}
+
+.kds-screen-empty {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--kds-bg);
+  border-radius: 8px;
+  border: 1px dashed var(--kds-card-border);
+}
+
+.kds-screen-empty p {
+  font-size: 0.8rem;
+  color: var(--kds-text-muted);
+  line-height: 1.5;
+  margin: 0;
 }
 </style>

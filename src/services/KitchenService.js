@@ -9,6 +9,33 @@ const SOCKET_URL = `http://${window.location.hostname}:5051`;
 
 // State
 const printedCestaIds = new Set(); // Track cestas already sent to printer
+const printTimers = {}; // Debounce timers per ticket for physical printing
+
+// Restore printedItemsByTicket from localStorage to survive page refreshes
+const printedItemsByTicket = (() => {
+  try {
+    const saved = localStorage.getItem("kdsPrintedItems");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const result = {};
+      for (const [ticketId, entries] of Object.entries(parsed)) {
+        result[ticketId] = new Map(entries);
+      }
+      return result;
+    }
+  } catch (e) { /* ignore */ }
+  return {};
+})();
+
+const savePrintedItems = () => {
+  try {
+    const toSave = {};
+    for (const [ticketId, map] of Object.entries(printedItemsByTicket)) {
+      toSave[ticketId] = [...map.entries()];
+    }
+    localStorage.setItem("kdsPrintedItems", JSON.stringify(toSave));
+  } catch (e) { /* ignore */ }
+};
 
 const state = reactive({
   tickets: [],
@@ -48,6 +75,8 @@ const state = reactive({
       ready: "r",
       preparing: "p",
     },
+    // Multi-pantalla KDS
+    kdsScreenName: "", // "" = mostrar todos los artículos KDS, "cafe" = solo kdscafe, etc.
   },
 });
 
@@ -234,24 +263,40 @@ const transformCestaToTicket = async (cesta) => {
     if (typeof impresora !== 'string') return false;
     const parts = impresora.split('_');
     const printerName = parts.length > 1 ? parts[1] : parts[0];
-    return printerName.toLowerCase() === 'kds';
+    return printerName.toLowerCase().startsWith('kds');
+  };
+
+  const getKdsScreenSuffix = (impresora) => {
+    if (typeof impresora !== 'string') return '';
+    const parts = impresora.split('_');
+    const printerName = (parts.length > 1 ? parts[1] : parts[0]).toLowerCase();
+    if (!printerName.startsWith('kds')) return '';
+    return printerName.substring(3); // 'kdscafe' -> 'cafe', 'kds' -> ''
+  };
+
+  const matchesKdsScreen = (impresora) => {
+    if (!isKdsPrinter(impresora)) return false;
+    const selectedScreen = (state.settings.kdsScreenName || '').toLowerCase();
+    if (!selectedScreen) return true; // No screen selected = show all KDS items
+    const suffix = getKdsScreenSuffix(impresora);
+    return suffix === selectedScreen;
   };
 
   const kitchenItems = cesta.lista.filter((item) => {
     const rootPrinted =
       (item.printed && item.printed > 0) ||
       (item.instancias && item.instancias.some((i) => i.printed));
-    const rootHasPrinter = isKdsPrinter(item.impresora);
+    const rootHasPrinter = matchesKdsScreen(item.impresora);
 
     if (rootPrinted && rootHasPrinter) return true;
 
-    // Check if any menu sub-item is printed and has a KDS printer
+    // Check if any menu sub-item is printed and has a KDS printer matching this screen
     if (item.articulosMenu && item.articulosMenu.length > 0) {
       const hasPrintedSubItem = item.articulosMenu.some((sub) => {
         const subPrinted =
           (sub.printed && sub.printed > 0) ||
           (sub.instancias && sub.instancias.some((i) => i.printed));
-        return subPrinted && isKdsPrinter(sub.impresora);
+        return subPrinted && matchesKdsScreen(sub.impresora);
       });
       if (hasPrintedSubItem) return true;
     }
@@ -283,7 +328,7 @@ const transformCestaToTicket = async (cesta) => {
     const printedQty =
       item.printed ||
       (item.instancias ? item.instancias.filter((i) => i.printed).length : 0);
-    const rootHasPrinter = isKdsPrinter(item.impresora);
+    const rootHasPrinter = matchesKdsScreen(item.impresora);
 
     if (item.articulosMenu && item.articulosMenu.length > 0) {
       // Process menu sub-items
@@ -299,8 +344,8 @@ const transformCestaToTicket = async (cesta) => {
           subPrintedQty = (printedQty / item.unidades) * subItem.unidades;
         }
 
-        // Only include if it actually goes to KDS
-        if (subPrintedQty <= 0 || !isKdsPrinter(subItem.impresora)) return;
+        // Only include if it actually goes to this KDS screen
+        if (subPrintedQty <= 0 || !matchesKdsScreen(subItem.impresora)) return;
 
         const familia = familiaCache[subItem.idArticulo] || "OTROS";
         if (!itemsByFamilia[familia]) itemsByFamilia[familia] = [];
@@ -312,6 +357,7 @@ const transformCestaToTicket = async (cesta) => {
           currentStatus = currentReadyCount > 0 ? "PREPARING" : "PENDING";
         }
         if (currentStatus === "PENDING") currentReadyCount = 0;
+        if (currentStatus === "PREPARING" && currentReadyCount >= subPrintedQty) currentReadyCount = 0;
 
         itemsByFamilia[familia].push({
           id: `${cesta._id}_menu_${item.idArticulo}_${index}_${subIndex}`,
@@ -350,6 +396,7 @@ const transformCestaToTicket = async (cesta) => {
         currentStatus = currentReadyCount > 0 ? "PREPARING" : "PENDING";
       }
       if (currentStatus === "PENDING") currentReadyCount = 0;
+      if (currentStatus === "PREPARING" && currentReadyCount >= printedQty) currentReadyCount = 0;
 
       itemsByFamilia[familia].push({
         id: `${cesta._id}_${item.idArticulo}_${index}`,
@@ -392,9 +439,9 @@ const transformCestaToTicket = async (cesta) => {
 
   if (courses.length === 0) return null;
 
-  // Timer Sync: Rely strictly on backend kdsTimestamp if available.
-  // Ensure accurate timer: only starts when items are legally sent to kitchen
-  let startedAt = cesta.kdsTimestamp || Date.now();
+  // Timer Sync: Use per-screen timestamp if available, then global kdsTimestamp as fallback
+  const screenName = (state.settings.kdsScreenName || '').toLowerCase();
+  let startedAt = cesta.kdsTimestamps?.[screenName] || cesta.kdsTimestamp || Date.now();
 
   return {
     id: cesta._id,
@@ -433,6 +480,7 @@ const init = async () => {
     state.isConnected = true;
   } else {
     const socket = io(SOCKET_URL);
+    socketRef = socket;
 
     socket.on("connect", () => {
       state.isConnected = true;
@@ -444,6 +492,10 @@ const init = async () => {
     });
 
     socket.on("cargarCestas", async (cestas) => {
+      if (courseUpdateInProgress) {
+        pendingCargarCestas = cestas;
+        return;
+      }
       const prevCount = state.tickets.length;
       const prevItemCount = state.tickets.reduce(
         (sum, t) =>
@@ -492,17 +544,53 @@ const init = async () => {
       }
 
       // Print to physical printer if enabled
+      // El Comandero NO imprime artículos con impresora KDS, solo el KDS lo hace aquí
       if (state.settings.printEnabled && state.settings.printPrinter) {
-        const prevTicketIds = new Set(state.tickets.map((t) => t.id));
         for (const ticket of activeTickets) {
-          if (!prevTicketIds.has(ticket.id) && !printedCestaIds.has(ticket.id)) {
-            printedCestaIds.add(ticket.id);
-            axios
-              .post("impresora/imprimirDesdeKds", {
-                idCesta: ticket.id,
-                targetPrinter: state.settings.printPrinter,
-              })
-              .catch((err) => console.error("Failed to print from KDS", err));
+          // Collect all current items with their quantities
+          const currentItems = new Map(); // backendId -> quantity
+          ticket.courses.forEach((c) => {
+            c.items.forEach((i) => {
+              currentItems.set(i.backendId, (currentItems.get(i.backendId) || 0) + i.quantity);
+            });
+          });
+
+          // Find items that are new or have increased quantity
+          if (!printedItemsByTicket[ticket.id]) printedItemsByTicket[ticket.id] = new Map();
+          const alreadyPrinted = printedItemsByTicket[ticket.id];
+          const itemsToReprint = [];
+          const prevQtys = {}; // backendId -> previous printed quantity
+          for (const [backendId, qty] of currentItems) {
+            const prevQty = alreadyPrinted.get(backendId) || 0;
+            if (qty > prevQty) {
+              itemsToReprint.push(backendId);
+              prevQtys[backendId] = prevQty;
+            }
+          }
+
+          if (itemsToReprint.length > 0) {
+            // Update tracked quantities IMMEDIATELY to prevent duplicate prints
+            for (const [backendId, qty] of currentItems) {
+              alreadyPrinted.set(backendId, qty);
+            }
+            savePrintedItems();
+
+            // Debounce: schedule print with a small delay, cancel if another arrives
+            const ticketId = ticket.id;
+            const itemsToSend = [...itemsToReprint];
+            const prevQtysToSend = { ...prevQtys };
+            if (printTimers[ticketId]) clearTimeout(printTimers[ticketId]);
+            printTimers[ticketId] = setTimeout(() => {
+              axios
+                .post("impresora/imprimirDesdeKds", {
+                  idCesta: ticketId,
+                  targetPrinter: state.settings.printPrinter,
+                  kdsScreenName: state.settings.kdsScreenName || undefined,
+                  soloItemIds: itemsToSend,
+                  prevQtys: prevQtysToSend,
+                })
+                .catch((err) => console.error("Failed to print from KDS", err));
+            }, 500);
           }
         }
       }
@@ -585,7 +673,7 @@ const toggleItemStatus = async (ticketId, itemId, maxQty, forceStatus) => {
     state.stateVersion++;
 
     console.log(
-      `[KDS] Update: ${ticketId} item ${itemRef.backendId} status -> ${nextStatus} (${nextCount})`,
+      `[KDS][TOGGLE] mesa=${ticket.tableName} cestaId=${ticketId} itemId=${itemId} backendId=${itemRef.backendId} name=${itemRef.name} qty=${maxQty} | ${itemRef.status} -> ${nextStatus} readyCount=${nextCount}`,
     );
 
     await axios.post("cestas/setItemKdsStatus", {
@@ -669,6 +757,11 @@ let lastSoundAt = 0;
 let isInitialized = false;
 let isSoundPending = false;
 
+// Course batch update guard — skip cargarCestas while bulk-updating a course
+let courseUpdateInProgress = false;
+let pendingCargarCestas = null; // store last skipped cestas data
+let socketRef = null; // module-level socket reference
+
 const playNewTicketSound = (typeOverride) => {
   if (!state.soundEnabled && !typeOverride) return;
   try {
@@ -748,8 +841,64 @@ const bumpTicket = (ticketId) => {
 
   // Persist bump to backend
   axios
-    .post("cestas/bumpKdsTicket", { idCesta: ticketId })
+    .post("cestas/bumpKdsTicket", { idCesta: ticketId, kdsScreenName: state.settings.kdsScreenName || undefined })
     .catch((err) => console.error("Failed to bump ticket globally", err));
+};
+
+const toggleCourseStatus = async (ticketId, courseId, targetStatus) => {
+  const ticket = state.tickets.find((t) => t.id === ticketId);
+  if (!ticket) {
+    return;
+  }
+
+  const course = ticket.courses.find((c) => c.id === courseId);
+  if (!course) {
+    return;
+  }
+
+  courseUpdateInProgress = true;
+  pendingCargarCestas = null;
+
+  // Collect items to update
+  const itemsToUpdate = [];
+  for (const item of course.items) {
+    if (isArticleHidden(item.idArticulo)) {
+      continue;
+    }
+
+    let nextCount = 0;
+    if (targetStatus === 'READY' || targetStatus === 'SERVED') {
+      nextCount = item.quantity;
+    }
+
+    // Optimistic UI update
+    item.status = targetStatus;
+    item.readyCount = nextCount;
+
+    itemsToUpdate.push({ item, nextCount });
+  }
+
+  state.stateVersion++;
+
+  // Send calls sequentially to avoid MongoDB lost-update race condition
+  for (const { item, nextCount } of itemsToUpdate) {
+    try {
+      await axios.post("cestas/setItemKdsStatus", {
+        idCesta: ticketId,
+        idItem: item.backendId,
+        status: targetStatus,
+        readyCount: nextCount,
+      });
+    } catch (err) {
+      console.error(`[KDS][COURSE]   ✗ backend FAIL for item=${item.name}`, err);
+    }
+  }
+
+  courseUpdateInProgress = false;
+  // Request fresh data from server now that all items are persisted
+  if (socketRef) {
+    socketRef.emit('cargarCestas');
+  }
 };
 
 const restoreTicket = (ticketId) => {
@@ -758,7 +907,7 @@ const restoreTicket = (ticketId) => {
   if (ticket) {
     ticket.courses.forEach((course) => {
       course.items.forEach((item) => {
-        if (item.status === "SERVED" || item.status === "READY") {
+        if (item.status === "SERVED" || item.status === "READY" || item.status === "PREPARING") {
           item.status = "PENDING";
           item.readyCount = 0;
         }
@@ -769,7 +918,7 @@ const restoreTicket = (ticketId) => {
 
   // Persist restore to backend
   axios
-    .post("cestas/restoreKdsTicket", { idCesta: ticketId })
+    .post("cestas/restoreKdsTicket", { idCesta: ticketId, kdsScreenName: state.settings.kdsScreenName || undefined })
     .then(() => { })
     .catch((err) => console.error("Failed to restore ticket", err));
 };
@@ -820,6 +969,26 @@ const cleanupOldState = () => {
     toDelete.forEach((k) => delete state.kitchenState[k]);
     // deferSave(); // Removed localStorage save
   }
+
+  // Limpiar printedItemsByTicket de tickets que ya no existen
+  let printedChanged = false;
+  for (const key of Object.keys(printedItemsByTicket)) {
+    if (!ticketIds.has(key)) {
+      delete printedItemsByTicket[key];
+      printedChanged = true;
+    }
+  }
+  if (printedChanged) savePrintedItems();
+};
+
+const fetchAvailableKdsScreens = async () => {
+  try {
+    const res = await axios.post("impresora/getKdsScreens");
+    return res.data || [];
+  } catch (err) {
+    console.error("Failed to fetch KDS screens", err);
+    return [];
+  }
 };
 
 export default {
@@ -832,6 +1001,7 @@ export default {
   toggleSound,
   bumpTicket,
   restoreTicket,
+  toggleCourseStatus,
   hideArticle,
   isArticleHidden,
   getItemStatus,
@@ -839,4 +1009,5 @@ export default {
   getReadyCount,
   updateSetting,
   playNewTicketSound,
+  fetchAvailableKdsScreens,
 };

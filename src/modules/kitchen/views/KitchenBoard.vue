@@ -6,6 +6,7 @@
         <div class="kds-logo">
           <span class="kds-logo__icon">🍳</span>
           <span class="kds-logo__text">KDS</span>
+          <span v-if="kdsScreenLabel" class="kds-screen-badge">{{ kdsScreenLabel }}</span>
         </div>
       </div>
 
@@ -108,17 +109,19 @@ export default {
       // Read stateVersion to trigger reactivity on item status changes
       const _ = KitchenService.state.stateVersion;
       if (KitchenService.state.showHistory) return all;
-      // Hide tickets where all visible items are done
+      // Hide tickets where all visible items are done (ready or served)
       return all.filter((ticket) => {
         const hasActive = ticket.courses.some((course) =>
           course.items.some((item) => {
             // Skip hidden articles — they don't count
             if (KitchenService.isArticleHidden(item.idArticulo)) return false;
             const status = KitchenService.getItemStatus(ticket.id, item.id);
-            if (status === "READY" || status === "SERVED") return false;
-            // Check quantity-based done
-            const readyCount = KitchenService.getReadyCount(ticket.id, item.id);
-            return readyCount < item.quantity;
+            if (status === "SERVED") return false;
+            if (status === "READY") {
+              const readyCount = KitchenService.getReadyCount(ticket.id, item.id);
+              return readyCount < item.quantity;
+            }
+            return true;
           }),
         );
         return hasActive;
@@ -169,6 +172,10 @@ export default {
       }),
       toggleHistory: KitchenService.toggleHistory,
       toggleSound: KitchenService.toggleSound,
+      kdsScreenLabel: computed(() => {
+        const name = KitchenService.state.settings.kdsScreenName;
+        return name ? name.toUpperCase() : '';
+      }),
       currentTime,
       handleBump,
     };
@@ -227,6 +234,17 @@ export default {
   font-size: 0.85rem;
   letter-spacing: 2px;
   color: var(--kds-text);
+}
+
+.kds-screen-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: var(--kds-accent);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 4px;
 }
 
 /* Stats */

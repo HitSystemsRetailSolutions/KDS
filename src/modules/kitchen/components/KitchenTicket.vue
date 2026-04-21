@@ -20,9 +20,32 @@
     <!-- Items grouped by course -->
     <div class="kds-ticket__body">
       <div v-for="course in activeCourses" :key="course.id" class="kds-course">
-        <!-- Course header (shown when there are multiple courses or it's a menu) -->
-        <div v-if="ticket.courses.length > 1 || course.id !== 'general'" class="kds-course__header">
-          {{ course.name }}
+        <!-- Course header with family-level action button -->
+        <div class="kds-course__header">
+          <span class="kds-course__name">{{ course.name }}</span>
+          <div class="kds-course__actions">
+            <button
+              v-if="getCourseStatus(course) === 'PENDING'"
+              class="kds-item-action kds-action-prep kds-course-action"
+              :title="$t('kds.prep_family', 'Preparar toda la familia')"
+              @click.stop="toggleCourse(course, 'PREPARING')">
+              🍳 {{ $t("kds.prep", "Prep") }}
+            </button>
+            <button
+              v-if="getCourseStatus(course) === 'PREPARING'"
+              class="kds-item-action kds-action-ready kds-course-action"
+              :title="$t('kds.ready_family', 'Marcar familia como lista')"
+              @click.stop="toggleCourse(course, 'READY')">
+              ✅ {{ $t("kds.ready", "Listo") }}
+            </button>
+            <button
+              v-if="getCourseStatus(course) === 'READY'"
+              class="kds-item-action kds-action-undo kds-course-action"
+              :title="$t('kds.undo_family', 'Deshacer toda la familia')"
+              @click.stop="toggleCourse(course, 'PENDING')">
+              ↩️ {{ $t("kds.undo", "Deshacer") }}
+            </button>
+          </div>
         </div>
 
         <div
@@ -80,20 +103,20 @@
       </div>
     </div>
 
-    <!-- Footer — Bump Button -->
-    <button v-if="!showHistory" class="kds-ticket__bump" @click="bumpTicket">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-      </svg>
-      {{ $t("kds.finish", "FIN") }}
-    </button>
-
-    <button v-else-if="isCompleted" class="kds-ticket__bump kds-ticket__bump--restore" @click="restoreTicket">
+    <!-- Footer — Bump / Undo Button -->
+    <button v-if="isCompleted" class="kds-ticket__bump kds-ticket__bump--restore" @click="restoreTicket">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path
           d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
       </svg>
       {{ $t("kds.undo_upper", "DESHACER") }}
+    </button>
+
+    <button v-else class="kds-ticket__bump" @click="bumpTicket">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+      </svg>
+      {{ $t("kds.finish", "FIN") }}
     </button>
   </div>
 </template>
@@ -192,6 +215,33 @@ export default {
       KitchenService.toggleItemStatus(props.ticket.id, itemId, quantity, forceStatus);
     };
 
+    // Family/course-level status helpers
+    const getCourseStatus = (course) => {
+      const _ = KitchenService.state.stateVersion;
+      const originalCourse = props.ticket.courses.find((c) => c.id === course.id);
+      if (!originalCourse) return "PENDING";
+
+      const visibleItems = originalCourse.items.filter((i) => !KitchenService.isArticleHidden(i.idArticulo));
+      if (visibleItems.length === 0) return "PENDING";
+
+      const statuses = visibleItems.map((i) => {
+        const s = KitchenService.getItemStatus(props.ticket.id, i.id);
+        return s;
+      });
+
+      const allDone = statuses.every((s) => s === "READY" || s === "SERVED");
+      if (allDone) return "READY";
+
+      const allPending = statuses.every((s) => !s || s === "PENDING");
+      if (allPending) return "PENDING";
+
+      return "PREPARING";
+    };
+
+    const toggleCourse = (course, targetStatus) => {
+      KitchenService.toggleCourseStatus(props.ticket.id, course.id, targetStatus);
+    };
+
     // Active courses with filtered items
     const bumpTicket = () => {
       emit("bump", props.ticket.id);
@@ -206,21 +256,27 @@ export default {
       return props.ticket.courses
         .map((course) => {
           const visible = course.items.filter((item) => !KitchenService.isArticleHidden(item.idArticulo));
-          const filtered = KitchenService.state.showHistory
-            ? visible
-            : visible.filter((item) => {
-                if (isServed(item.id)) return false;
-                if (isItemDone(item.id, item.quantity)) return false;
-                return true;
-              });
+          const filtered =
+            KitchenService.state.showHistory || isCompleted.value
+              ? visible
+              : visible.filter((item) => {
+                  if (isServed(item.id)) return false;
+                  if (isItemDone(item.id, item.quantity)) return false;
+                  return true;
+                });
           return { ...course, items: filtered };
         })
         .filter((course) => course.items.length > 0);
     });
 
     const isCompleted = computed(() => {
-      // A ticket is considered completed if all items are SERVED
-      return props.ticket.courses.every((c) => c.items.every((item) => isServed(item.id)));
+      // A ticket is considered completed if all visible items are READY or SERVED
+      const visibleCourses = props.ticket.courses.map((c) =>
+        c.items.filter((item) => !KitchenService.isArticleHidden(item.idArticulo)),
+      );
+      const allVisible = visibleCourses.flat();
+      if (allVisible.length === 0) return false;
+      return allVisible.every((item) => isReady(item.id) || isServed(item.id) || isItemDone(item.id, item.quantity));
     });
 
     const restoreTicket = () => {
@@ -236,6 +292,8 @@ export default {
       isPreparing,
       isServed,
       toggleItem,
+      getCourseStatus,
+      toggleCourse,
       remainingQty,
       activeCourses,
       allItemsCount,
@@ -394,12 +452,30 @@ export default {
 }
 
 .kds-course__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 6px 12px 2px;
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--kds-accent);
+}
+
+.kds-course__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.kds-course__actions {
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.kds-course-action {
+  padding: 4px 10px;
+  font-size: 0.65rem;
 }
 
 .kds-item {
@@ -439,7 +515,10 @@ export default {
 .kds-item--served {
   opacity: 0.45;
   background: #252a3a;
-  pointer-events: none;
+}
+
+.kds-item--served .kds-item__actions {
+  pointer-events: auto;
 }
 
 .kds-item--ready .kds-item__name {
